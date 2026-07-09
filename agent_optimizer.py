@@ -301,8 +301,15 @@ class AgenticCareerCoach:
             f"Leadership roles like 'President of Enactus' are HIGHLY valued by consulting and business firms. "
             f"CRITICAL: For each axis, write a very short (max 1-2 sentences) 'insight' in an informal, punchy, and conversational tone. "
             f"Talk to the candidate directly (using 'you'/'your') about what makes them stand out or what they are lacking. Avoid dry or verbose academic reporting. "
+            f"Also perform a detailed skill gap analysis based on their profile vs target companies: "
+            f"- 'skill_match_percentage': an integer (0-100) representing how well their current skills match the target job requirements. "
+            f"- 'must_learn_immediately': a list of 3-5 specific high-priority skills or tools they must learn immediately. "
+            f"- 'may_learn_future': a list of 3-5 lower-priority or secondary skills they should learn in the future. "
             f"Return ONLY valid JSON:\n"
             f"{{\"scores\": {{\"Technical Depth\": {{\"score\": int, \"insight\": str}}, ...}}, "
+            f"\"skill_match_percentage\": int, "
+            f"\"must_learn_immediately\": [str], "
+            f"\"may_learn_future\": [str], "
             f"\"highlight_bullet\": str, \"overall_assessment\": str, \"red_flags\": [str]}}"
         )
 
@@ -318,6 +325,9 @@ class AgenticCareerCoach:
             raw,
             {
                 "scores": {ax: {"score": 50, "insight": "Analysis pending."} for ax in SCORECARD_AXES},
+                "skill_match_percentage": 50,
+                "must_learn_immediately": [],
+                "may_learn_future": [],
                 "highlight_bullet": "",
                 "overall_assessment": "",
                 "red_flags": [],

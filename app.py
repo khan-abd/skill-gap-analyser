@@ -599,6 +599,30 @@ with col_left:
     
     scorecard_html = f'<div class="card">'
     
+    # Semicircle Donut Gauge for Skill Match
+    match_pct = scorecard.get("skill_match_percentage", 50)
+    dash_offset = 125.66 * (1 - (match_pct / 100.0))
+    
+    scorecard_html += (
+        f'<div style="display:flex; justify-content:center; align-items:center; flex-direction:column; margin-bottom:1.5rem; padding-bottom:1.2rem; border-bottom:1px solid #F0EBE3;">'
+        f'  <div style="position:relative; width:180px; height:90px; overflow:hidden;">'
+        f'    <svg viewBox="0 0 100 50" style="width:100%; height:100%;">'
+        f'      <!-- Background Track -->'
+        f'      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#EDE7D9" stroke-width="11" stroke-linecap="round"/>'
+        f'      <!-- Filled Track -->'
+        f'      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#8B5E3C" stroke-width="11" stroke-linecap="round"'
+        f'            stroke-dasharray="125.66" stroke-dashoffset="{dash_offset}"'
+        f'            style="transition: stroke-dashoffset 0.6s ease-out;"/>'
+        f'    </svg>'
+        f'    <!-- Center Text -->'
+        f'    <div style="position:absolute; bottom:0; left:0; right:0; text-align:center;">'
+        f'      <span style="font-family:\'Lora\',serif; font-size:1.8rem; font-weight:700; color:#2C1A0E;">{match_pct}%</span>'
+        f'      <div style="font-size:0.75rem; color:#7A6353; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-top:-2px;">Skill Match</div>'
+        f'    </div>'
+        f'  </div>'
+        f'</div>'
+    )
+    
     highlight = scorecard.get("highlight_bullet", "")
     if highlight:
         scorecard_html += f'<div class="highlight-box">⭐ <strong>Your strongest point:</strong> {highlight}</div>'
@@ -640,6 +664,27 @@ with col_left:
         scorecard_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Areas to address:</div>'
         for rf in red_flags:
             scorecard_html += f'<div class="redflag-box">&#9888; {rf}</div>'
+        scorecard_html += f'</div>'
+        
+    # Categorized Skill Gaps
+    must_learn = scorecard.get("must_learn_immediately", [])
+    may_learn = scorecard.get("may_learn_future", [])
+    if must_learn or may_learn:
+        scorecard_html += f'<div style="border-top: 1px solid #E4DDD3; margin-top:1rem; padding-top:1rem;">'
+        scorecard_html += f'  <div style="font-size:0.8rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">🎯 Skill Gap Analysis</div>'
+        
+        if must_learn:
+            scorecard_html += f'  <div style="margin-bottom:0.8rem;">'
+            scorecard_html += f'    <div style="font-size:0.82rem; font-weight:600; color:#EF4444; margin-bottom:0.35rem;">⚠️ Must Learn Immediately:</div>'
+            scorecard_html += "".join(f'<span class="tag" style="background:#FEF2F2; color:#991B1B !important; border:1px solid #FCA5A5; margin-right:5px; margin-bottom:5px; padding:3px 10px;">🔥 {skill}</span>' for skill in must_learn)
+            scorecard_html += f'  </div>'
+            
+        if may_learn:
+            scorecard_html += f'  <div>'
+            scorecard_html += f'    <div style="font-size:0.82rem; font-weight:600; color:#4B5563; margin-bottom:0.35rem;">⏳ Future Growth Skills:</div>'
+            scorecard_html += "".join(f'<span class="tag" style="background:#F3F4F6; color:#1F2937 !important; border:1px solid #D1D5DB; margin-right:5px; margin-bottom:5px; padding:3px 10px;">💎 {skill}</span>' for skill in may_learn)
+            scorecard_html += f'  </div>'
+            
         scorecard_html += f'</div>'
         
     scorecard_html += f'</div>'
