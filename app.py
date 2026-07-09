@@ -916,7 +916,7 @@ with col_right:
 st.divider()
 st.markdown(
     '<div style="text-align:center;color:#B8A898;font-size:0.76rem;padding-bottom:0.5rem;">'
-    "SkillBridge &middot; Powered by Gemini &middot; Built for placement season"
+    "SkillBridge &middot; Built for placement season &middot; Made with <3 by Abd"
     "</div>",
     unsafe_allow_html=True,
 )
