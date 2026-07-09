@@ -299,6 +299,8 @@ class AgenticCareerCoach:
             f"Be calibrated — a score of 80+ should be genuinely rare and impressive. "
             f"Consider ALL aspects of their profile, not just technical skills. "
             f"Leadership roles like 'President of Enactus' are HIGHLY valued by consulting and business firms. "
+            f"CRITICAL: For each axis, write a very short (max 1-2 sentences) 'insight' in an informal, punchy, and conversational tone. "
+            f"Talk to the candidate directly (using 'you'/'your') about what makes them stand out or what they are lacking. Avoid dry or verbose academic reporting. "
             f"Return ONLY valid JSON:\n"
             f"{{\"scores\": {{\"Technical Depth\": {{\"score\": int, \"insight\": str}}, ...}}, "
             f"\"highlight_bullet\": str, \"overall_assessment\": str, \"red_flags\": [str]}}"

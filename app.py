@@ -146,7 +146,7 @@ h3 { font-size: 1.1rem !important; font-weight: 600 !important; }
 .score-num { font-family:'Lora',serif; font-size:1rem; font-weight:700; }
 .score-bar-bg { background:#EDE7D9; border-radius:99px; height:9px; overflow:hidden; }
 .score-bar-fill { height:9px; border-radius:99px; }
-.score-insight { font-size:0.77rem; color:#7A6353 !important; margin-top:4px; font-style:italic; line-height:1.4; }
+.score-insight { font-size:0.90rem; color:#4A3525 !important; margin-top:6px; line-height:1.45; }
 
 /* Chat bubbles */
 .user-bubble { background:#8B5E3C; color:#FFFFFF !important; border-radius:18px 18px 4px 18px; padding:0.55rem 0.95rem; margin:0.3rem 0 0.3rem 15%; font-size:0.86rem; line-height:1.5; word-wrap:break-word; }
@@ -519,66 +519,90 @@ with col_left:
 
     # --- Full Profile Card ---
     st.markdown('<span class="section-label">Your Full Profile</span>', unsafe_allow_html=True)
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-
-    r1c1, r1c2 = st.columns(2)
-    with r1c1:
-        degree  = profile.get("degree", "")
-        college = profile.get("college", "")
-        grad    = profile.get("graduation_year", "")
-        st.markdown(f"**{degree}**" if degree else "**Degree not found**")
-        if college:
-            st.markdown(f"🏛 {college}" + (f" · Class of {grad}" if grad else ""))
-    with r1c2:
-        cgpa = profile.get("cgpa")
-        cgpa_str = f"{float(cgpa):.2f} / 10.0" if cgpa else "N/A"
-        st.markdown(f"**CGPA:** {cgpa_str}")
-
+    
+    degree = profile.get("degree") or "Degree not found"
+    college = profile.get("college") or ""
+    grad = profile.get("graduation_year") or ""
+    cgpa = profile.get("cgpa")
+    cgpa_str = f"{float(cgpa):.2f} / 10.0" if cgpa else "N/A"
+    
+    profile_html = f'<div class="card">'
+    profile_html += f'<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1rem; border-bottom:1px solid #F0EBE3; padding-bottom:0.75rem;">'
+    profile_html += f'  <div>'
+    profile_html += f'    <div style="font-size:1.05rem; font-weight:700; color:#2C1A0E;">{degree}</div>'
+    if college:
+        profile_html += f'    <div style="font-size:0.86rem; color:#7A6353; margin-top:2px;">🏛 {college}' + (f' · Class of {grad}' if grad else '') + f'</div>'
+    profile_html += f'  </div>'
+    profile_html += f'  <div style="font-size:0.95rem; font-weight:700; color:#2C1A0E;">CGPA: <span style="color:#8B5E3C;">{cgpa_str}</span></div>'
+    profile_html += f'</div>'
+    
     skills = profile.get("skills", [])
     if skills:
-        st.markdown("**Skills**")
-        st.markdown("".join(f'<span class="tag">{s}</span>' for s in skills), unsafe_allow_html=True)
-
+        profile_html += f'<div style="margin-bottom:1rem;">'
+        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Skills</div>'
+        profile_html += "".join(f'<span class="tag">{s}</span>' for s in skills)
+        profile_html += f'</div>'
+        
     leadership = profile.get("leadership", [])
     if leadership:
-        st.markdown("**Leadership & Positions of Responsibility**")
-        st.markdown("".join(f'<span class="tag tag-gold">🏅 {item}</span>' for item in leadership), unsafe_allow_html=True)
-
+        profile_html += f'<div style="margin-bottom:1rem;">'
+        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Leadership & Positions of Responsibility</div>'
+        profile_html += "".join(f'<span class="tag tag-gold">🏅 {item}</span>' for item in leadership)
+        profile_html += f'</div>'
+        
     projects = profile.get("projects", [])
     if projects:
-        st.markdown("**Projects**")
+        profile_html += f'<div style="margin-bottom:1rem;">'
+        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Projects</div>'
+        profile_html += f'  <ul style="margin:0; padding-left:1.2rem; font-size:0.86rem; color:#2C1A0E; line-height:1.5;">'
         for p in projects:
             if isinstance(p, dict):
                 n = p.get("name", "Untitled")
                 d = (p.get("description") or "")
-                st.markdown(f"- **{n}** — {d[:140]}{'...' if len(d)>140 else ''}")
+                d_trunc = f"{d[:140]}..." if len(d)>140 else d
+                profile_html += f'    <li style="margin-bottom:0.3rem;"><strong>{n}</strong> — {d_trunc}</li>'
             else:
-                st.markdown(f"- {p}")
-
-    cols3 = st.columns(3)
-    for col, key, label in zip(cols3, ["internships","certifications","awards"], ["Internships","Certifications","Awards"]):
+                profile_html += f'    <li style="margin-bottom:0.3rem;">{p}</li>'
+        profile_html += f'  </ul>'
+        profile_html += f'</div>'
+        
+    cols_data = []
+    for key, label in [("internships", "Internships"), ("certifications", "Certifications"), ("awards", "Awards")]:
         items = profile.get(key, [])
         if items:
-            with col:
-                st.markdown(f"**{label}**")
-                for it in items:
-                    st.markdown(f"- {it}")
-
+            cols_data.append((label, items))
+            
+    if cols_data:
+        profile_html += f'<div style="display:flex; gap:1.5rem; margin-bottom:1rem;">'
+        for label, items in cols_data:
+            profile_html += f'  <div style="flex:1; min-width:0;">'
+            profile_html += f'    <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">{label}</div>'
+            profile_html += f'    <ul style="margin:0; padding-left:1.1rem; font-size:0.84rem; color:#2C1A0E; line-height:1.4;">'
+            for it in items:
+                profile_html += f'      <li style="margin-bottom:0.25rem;">{it}</li>'
+            profile_html += f'    </ul>'
+            profile_html += f'  </div>'
+        profile_html += f'</div>'
+        
     extras = profile.get("extracurriculars", [])
     if extras:
-        st.markdown("**Extracurriculars**")
-        st.markdown("".join(f'<span class="tag tag-blue">{e}</span>' for e in extras), unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
+        profile_html += f'<div style="margin-bottom:0.5rem;">'
+        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Extracurriculars</div>'
+        profile_html += "".join(f'<span class="tag tag-blue">{e}</span>' for e in extras)
+        profile_html += f'</div>'
+        
+    profile_html += f'</div>'
+    st.markdown(profile_html, unsafe_allow_html=True)
 
     # --- Scorecard ---
     st.markdown('<span class="section-label">Scorecard</span>', unsafe_allow_html=True)
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-
+    
+    scorecard_html = f'<div class="card">'
+    
     highlight = scorecard.get("highlight_bullet", "")
     if highlight:
-        st.markdown(f'<div class="highlight-box">⭐ <strong>Your strongest point:</strong> {highlight}</div>', unsafe_allow_html=True)
-
+        scorecard_html += f'<div class="highlight-box">⭐ <strong>Your strongest point:</strong> {highlight}</div>'
+        
     scores_data = scorecard.get("scores", {})
     for ax in SCORECARD_AXES:
         ax_data = scores_data.get(ax) or next(
@@ -588,30 +612,38 @@ with col_left:
         insight = ax_data.get("insight", "")  if isinstance(ax_data, dict) else ""
         colour  = "#22C55E" if sc >= 78 else ("#F59E0B" if sc >= 58 else "#EF4444")
         insight_html = f'<div class="score-insight">{insight}</div>' if insight else ""
-        st.markdown(
+        
+        scorecard_html += (
             f'<div class="score-wrap">'
-            f'<div class="score-label-row">'
-            f'<span class="score-label-text">{ax}</span>'
-            f'<span class="score-num" style="color:{colour}">{sc}'
-            f'<span style="font-size:0.7rem;color:#9CA3AF">/100</span></span>'
+            f'  <div class="score-label-row">'
+            f'    <span class="score-label-text">{ax}</span>'
+            f'    <span class="score-num" style="color:{colour}">{sc}'
+            f'      <span style="font-size:0.7rem;color:#9CA3AF">/100</span>'
+            f'    </span>'
+            f'  </div>'
+            f'  <div class="score-bar-bg">'
+            f'    <div class="score-bar-fill" style="width:{sc}%; background:linear-gradient(90deg,{colour}88,{colour})"></div>'
+            f'  </div>'
+            f'  {insight_html}'
             f'</div>'
-            f'<div class="score-bar-bg"><div class="score-bar-fill" style="width:{sc}%;background:linear-gradient(90deg,{colour}88,{colour})"></div></div>'
-            f'{insight_html}'
-            f'</div>',
-            unsafe_allow_html=True,
         )
-
+        
     overall = scorecard.get("overall_assessment", "")
     if overall:
-        st.markdown(f"---\n**Overall:** {overall}")
-
+        scorecard_html += f'<div style="border-top: 1px solid #E4DDD3; padding-top:0.75rem; margin-top:1rem; font-size:0.88rem; color:#2C1A0E; line-height:1.5;">'
+        scorecard_html += f'  <strong>Overall Assessment:</strong> {overall}'
+        scorecard_html += f'</div>'
+        
     red_flags = scorecard.get("red_flags", [])
     if red_flags:
-        st.markdown("**Areas to address:**")
+        scorecard_html += f'<div style="margin-top:1rem;">'
+        scorecard_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Areas to address:</div>'
         for rf in red_flags:
-            st.markdown(f'<div class="redflag-box">&#9888; {rf}</div>', unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
+            scorecard_html += f'<div class="redflag-box">&#9888; {rf}</div>'
+        scorecard_html += f'</div>'
+        
+    scorecard_html += f'</div>'
+    st.markdown(scorecard_html, unsafe_allow_html=True)
 
     # --- Roadmap ---
     with st.expander("🗺  Your 4-Week Learning Roadmap", expanded=False):
