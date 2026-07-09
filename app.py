@@ -1,706 +1,670 @@
 """
-app.py  –  Phase 3: Streamlit Dashboard
-Skill Gap Analyzer with 3 ML layers:
-  Layer 1: TF-IDF + Cosine Similarity Course Recommender
-  Layer 2: Logistic Regression Employability Predictor
-  Layer 3: K-Means Student Segmentation
+app.py - SkillBridge v2
+========================
+Warm beige/brown editorial theme.
+Two-column layout: left = full audit + roadmap, right = Coach Bridge panel.
+No static SQL database - all intelligence is RAG-grounded via Gemini.
 """
 
 import streamlit as st
-import sqlite3, os, re
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-import warnings
-warnings.filterwarnings("ignore")
+from resume_parser import extract_text_from_pdf
+from agent_optimizer import AgenticCareerCoach, SCORECARD_AXES
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.linear_model import LogisticRegression
-from sklearn.cluster import KMeans
-from resume_parser import parse_resume
-
-# ── Skill Normalization Utilities (no hardcoding) ──────────────────────────
-def normalize_key(skill: str) -> str:
-    """
-    Canonical key for comparison only — strips ALL separators and lowercases.
-    'Power_Bi', 'PowerBI', 'power bi', 'POWER_BI' all become 'powerbi'.
-    'Scikit-Learn', 'scikit_learn', 'ScikitLearn' all become 'scikitlearn'.
-    This means comparison never fails due to casing or separator style.
-    """
-    return re.sub(r'[\s_\-]+', '', skill.strip().lower())
-
-
-# Short tech words that should be fully uppercase in display (SQL, BI, AI …)
-# Determined algorithmically: ≤4 chars AND all originally uppercase-worthy
-_FORCE_UPPER = {"sql", "bi", "ai", "ml", "dl", "nlp", "crm", "etl", "api",
-                "aws", "gcp", "vba", "sas", "eda", "css", "html", "php",
-                "ux", "ui", "r", "c"}
-
-def prettify_skill(skill: str) -> str:
-    """
-    Human-readable display form, derived algorithmically:
-    1. Replace underscores / extra spaces with a single space
-    2. Split on camelCase boundaries so 'PowerBI' → ['Power', 'BI']
-    3. Title-case each word; fully uppercase known short tech acronyms
-    Result: 'power_bi' → 'Power BI',  'nosql' → 'NoSQL',  'aws' → 'AWS'
-    """
-    # Step 1: replace underscores and hyphens with space
-    s = re.sub(r'[_\-]+', ' ', skill.strip())
-    # Step 2: insert space before uppercase runs that follow lowercase
-    # e.g. 'PowerBI' → 'Power BI',  'NoSQL' → 'No SQL'
-    s = re.sub(r'([a-z])([A-Z])', r'\1 \2', s)
-    s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', s)
-    # Step 3: per-word formatting
-    words = s.split()
-    result = []
-    for w in words:
-        lower_w = w.lower()
-        if lower_w in _FORCE_UPPER:
-            result.append(w.upper())
-        else:
-            result.append(w.capitalize())
-    return ' '.join(result)
-
-# ── Config ────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------- #
+# Page Config
+# ---------------------------------------------------------------------------- #
 st.set_page_config(
-    page_title="SkillBridge – AI Career Analyzer",
+    page_title="SkillBridge - Career War Room",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database", "skill_gap.db")
-
-TARGET_ROLES = [
-    "Data Analyst", "Data Scientist", "Software Engineer",
-    "Web Developer", "Android/iOS Developer", "Business Analyst",
-    "Product Manager", "Management Consultant", "Marketing Analyst",
-    "HR Analyst", "UX/UI Designer", "Financial Analyst",
-]
-
-CLUSTER_LABELS = {0: "High Achiever 🏆", 1: "On Track 📈", 2: "Needs Focus 🎯"}
-
-# ── CSS ───────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------- #
+# CSS - Warm Beige / Brown Theme
+# ---------------------------------------------------------------------------- #
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
 
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+/* Style the header bar to be a premium dark espresso brown strip on top */
+header, 
+[data-testid="stHeader"], 
+[data-testid="stAppHeader"], 
+.stAppHeader,
+[data-testid="stAppHeader"] > div,
+.stAppHeader > div {
+    background-color: #2C1A0E !important;
+    background: #2C1A0E !important;
+    border-bottom: 1px solid #1A0F08 !important;
+}
+[data-testid="stDecoration"] { display: none !important; }
+footer { display: none !important; }
 
-.stApp { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; }
+/* Keep header buttons visible and force them to render clean white elements (chevrons, Deploy button, etc.) */
+header *, 
+[data-testid="stHeader"] *, 
+[data-testid="stAppHeader"] *, 
+.stAppHeader * {
+    color: #FFFFFF !important;
+}
+header svg, header svg path, header svg polyline,
+[data-testid="stHeader"] svg, [data-testid="stHeader"] svg path, [data-testid="stHeader"] svg polyline,
+[data-testid="stAppHeader"] svg, [data-testid="stAppHeader"] svg path, [data-testid="stAppHeader"] svg polyline,
+.stAppHeader svg, .stAppHeader svg path, .stAppHeader svg polyline {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
+    stroke: #FFFFFF !important;
+}
 
-/* Hero */
-.hero { text-align:center; padding: 2.5rem 1rem 1.5rem; }
-.hero h1 { font-size: 3rem; font-weight: 800;
-    background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin-bottom: .4rem; }
-.hero p { color: #94a3b8; font-size: 1.1rem; }
+/* Sidebar collapse/expand chevron button - style in clean white on the dark strip */
+[data-testid="collapsedControl"], 
+[data-testid="stSidebarCollapseButton"],
+button[data-testid="collapsedControl"],
+button[data-testid="stSidebarCollapseButton"] {
+    color: #FFFFFF !important;
+    background-color: transparent !important;
+    border: none !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 100000 !important;
+}
+[data-testid="collapsedControl"]:hover,
+[data-testid="stSidebarCollapseButton"]:hover {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 8px !important;
+}
+
+.main .block-container {
+    padding-top: 0.5rem !important;
+    padding-bottom: 1rem !important;
+    max-width: 100% !important;
+}
+
+/* Global typography & readability */
+html, body { background-color: #F5F0E8 !important; }
+.stApp { background-color: #F5F0E8 !important; font-family: 'Inter', sans-serif !important; }
+
+/* Force standard text to use Inter and be legible */
+p, li, td, th, label, small {
+    color: #2C1A0E !important;
+    font-family: 'Inter', sans-serif !important;
+}
+
+/* Sidebar structure */
+[data-testid="stSidebar"] {
+    background-color: #EDE7D9 !important;
+    border-right: 2px solid #D4C5B0 !important;
+}
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span:not([class*="icon"]) {
+    color: #2C1A0E !important;
+}
+[data-testid="stSidebar"] a {
+    color: #8B5E3C !important;
+}
+
+/* Typography */
+h1, h2, h3, h4 { font-family: 'Lora', serif !important; color: #2C1A0E !important; }
+h1 { font-size: 1.85rem !important; font-weight: 700 !important; }
+h2 { font-size: 1.4rem !important; font-weight: 600 !important; }
+h3 { font-size: 1.1rem !important; font-weight: 600 !important; }
 
 /* Cards */
 .card {
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 16px; padding: 1.4rem 1.6rem;
-    margin-bottom: 1rem;
-    backdrop-filter: blur(12px);
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 1.4rem 1.6rem;
+    box-shadow: 0 2px 16px rgba(44, 26, 14, 0.07);
+    margin-bottom: 1.25rem;
+    border: 1px solid #E4DDD3;
 }
-.card h3 { color: #e2e8f0; font-size: 1rem; font-weight: 600; margin-bottom: .8rem; }
 
-/* Skill chips */
-.chip-green  { display:inline-block; background:#052e16; color:#4ade80;
-    border:1px solid #166534; border-radius:20px; padding:3px 12px;
-    font-size:.78rem; margin:3px; }
-.chip-red    { display:inline-block; background:#2d0a0a; color:#f87171;
-    border:1px solid #7f1d1d; border-radius:20px; padding:3px 12px;
-    font-size:.78rem; margin:3px; }
-.chip-blue   { display:inline-block; background:#0c1a40; color:#93c5fd;
-    border:1px solid #1e3a5f; border-radius:20px; padding:3px 12px;
-    font-size:.78rem; margin:3px; }
-
-/* Course card */
-.course-card {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(167,139,250,0.25);
-    border-left: 4px solid #a78bfa;
-    border-radius: 12px; padding: 1rem 1.2rem; margin-bottom: .8rem;
-}
-.course-card h4 { color: #e2e8f0; font-size: .95rem; font-weight: 600; margin:0 0 .3rem; }
-.course-card p  { color: #94a3b8; font-size: .8rem; margin: 0; }
-.course-card a  { color: #a78bfa; font-size: .8rem; text-decoration: none; }
-
-/* Metric */
-.big-metric { text-align:center; }
-.big-metric .val { font-size: 2.8rem; font-weight: 800; }
-.big-metric .lbl { color: #94a3b8; font-size: .85rem; }
-
-/* Section label */
+/* Section labels */
 .section-label {
-    font-size: .7rem; font-weight: 700; letter-spacing: .12em;
-    color: #7c3aed; text-transform: uppercase; margin-bottom: .5rem;
+    font-family: 'Lora', serif;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #8B5E3C !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.65rem;
+    display: block;
 }
 
-/* Sidebar */
-section[data-testid="stSidebar"] { background: rgba(15,12,41,0.9); }
+/* Tags */
+.tag { display:inline-block; background:#F0EBE3; color:#6F4A2E !important; border-radius:20px; padding:3px 11px; font-size:0.75rem; font-weight:500; margin:2px 3px 2px 0; border:1px solid #D4C5B0; }
+.tag-gold { background:#FFF8EE; color:#A0622A !important; border:1px solid #F0C87A; }
+.tag-blue { background:#EFF6FF; color:#1E40AF !important; border:1px solid #BFDBFE; }
+
+/* Score bars */
+.score-wrap { margin-bottom: 1rem; }
+.score-label-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.score-label-text { font-size:0.85rem; font-weight:500; color:#3D2810 !important; }
+.score-num { font-family:'Lora',serif; font-size:1rem; font-weight:700; }
+.score-bar-bg { background:#EDE7D9; border-radius:99px; height:9px; overflow:hidden; }
+.score-bar-fill { height:9px; border-radius:99px; }
+.score-insight { font-size:0.77rem; color:#7A6353 !important; margin-top:4px; font-style:italic; line-height:1.4; }
+
+/* Chat bubbles */
+.user-bubble { background:#8B5E3C; color:#FFFFFF !important; border-radius:18px 18px 4px 18px; padding:0.55rem 0.95rem; margin:0.3rem 0 0.3rem 15%; font-size:0.86rem; line-height:1.5; word-wrap:break-word; }
+.coach-bubble { background:#F5F0E8; color:#2C1A0E !important; border-radius:18px 18px 18px 4px; padding:0.55rem 0.95rem; margin:0.3rem 15% 0.3rem 0; font-size:0.86rem; line-height:1.5; border:1px solid #E4DDD3; word-wrap:break-word; }
+
+/* Highlight / alert boxes */
+.highlight-box { background:linear-gradient(135deg,#FFF8EE,#FFF2DD); border-left:4px solid #C4956A; border-radius:0 12px 12px 0; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.88rem; color:#5C3A1E !important; line-height:1.5; }
+.redflag-box { background:#FFF5F5; border-left:4px solid #F87171; border-radius:0 10px 10px 0; padding:0.45rem 0.8rem; font-size:0.82rem; color:#7F1D1D !important; margin:0.25rem 0; line-height:1.4; }
+
+/* Buttons styling (with readable text) */
+.stButton > button[kind="primary"] {
+    background-color: #8B5E3C !important;
+    color: #FFFFFF !important;
+    border-radius: 12px !important;
+    border: none !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(139,94,60,0.2) !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background-color: #6F4A2E !important;
+}
+.stButton > button[kind="secondary"], .stButton > button:not([kind="primary"]) {
+    background-color: #FFFFFF !important;
+    color: #2C1A0E !important;
+    border: 1px solid #C4A882 !important;
+    border-radius: 10px !important;
+    font-family: 'Inter', sans-serif !important;
+}
+.stButton > button[kind="secondary"]:hover {
+    border-color: #8B5E3C !important;
+    color: #8B5E3C !important;
+}
+
+/* Form submit button (Send button) styling - make it readable and warm brown */
+[data-testid="stFormSubmitButton"] button, 
+button[data-testid="stFormSubmitButton"] {
+    background-color: #8B5E3C !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    padding: 0.55rem 1.2rem !important;
+}
+[data-testid="stFormSubmitButton"] button *, 
+button[data-testid="stFormSubmitButton"] * {
+    color: #FFFFFF !important;
+}
+[data-testid="stFormSubmitButton"] button:hover, 
+button[data-testid="stFormSubmitButton"]:hover {
+    background-color: #6F4A2E !important;
+}
+
+/* Inputs styling */
+input[type=text], .stTextInput input, .stTextArea textarea {
+    background: #FFFFFF !important;
+    border: 1px solid #C4A882 !important;
+    border-radius: 10px !important;
+    color: #2C1A0E !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.88rem !important;
+}
+.stTextInput input::placeholder, .stTextArea textarea::placeholder { color: #B8A898 !important; }
+.stTextInput input:focus, .stTextArea textarea:focus {
+    border-color: #8B5E3C !important;
+    box-shadow: 0 0 0 2px rgba(139,94,60,0.15) !important;
+}
+
+/* Multiselect style overrides */
+[data-testid="stMultiSelect"] > div {
+    background: #FFFFFF !important;
+    border: 1px solid #C4A882 !important;
+    border-radius: 10px !important;
+}
+[data-testid="stMultiSelect"] span { color: #2C1A0E !important; }
+
+/* Force dropdown menu popup options to have light-coloured text on their default dark backgrounds */
+div[role="listbox"] li,
+div[data-baseweb="menu"] li,
+[data-baseweb="popover"] li,
+div[role="listbox"] [role="option"],
+div[data-baseweb="menu"] [role="option"] {
+    color: #F5F0E8 !important;
+}
+div[role="listbox"] li *,
+div[data-baseweb="menu"] li *,
+[data-baseweb="popover"] li *,
+div[role="listbox"] [role="option"] *,
+div[data-baseweb="menu"] [role="option"] * {
+    color: #F5F0E8 !important;
+}
+/* Selected/Hover state in the dropdown list */
+div[role="listbox"] li:hover,
+div[data-baseweb="menu"] li:hover,
+[data-baseweb="popover"] li:hover,
+div[role="listbox"] [role="option"]:hover,
+div[data-baseweb="menu"] [role="option"]:hover {
+    background-color: #313A43 !important;
+    color: #FFFFFF !important;
+}
+div[role="listbox"] li:hover *,
+div[data-baseweb="menu"] li:hover *,
+[data-baseweb="popover"] li:hover *,
+div[role="listbox"] [role="option"]:hover *,
+div[data-baseweb="menu"] [role="option"]:hover * {
+    color: #FFFFFF !important;
+}
+
+/* File Uploader styling */
+[data-testid="stFileUploader"] section {
+    background: #FFFFFF !important;
+    border: 2px dashed #C4A882 !important;
+    border-radius: 12px !important;
+    padding: 1.5rem !important;
+}
+[data-testid="stFileUploader"] button {
+    background-color: #8B5E3C !important;
+    color: #FFFFFF !important;
+    border-radius: 8px !important;
+    padding: 0.4rem 1rem !important;
+    border: none !important;
+}
+[data-testid="stFileUploader"] button * {
+    color: #FFFFFF !important;
+}
+[data-testid="stFileUploader"] label {
+    font-weight: 600 !important;
+    color: #2C1A0E !important;
+}
+
+/* Expander custom design */
+[data-testid="stExpander"] {
+    background: #FFFFFF !important;
+    border: 1px solid #E4DDD3 !important;
+    border-radius: 14px !important;
+}
+[data-testid="stExpander"] summary {
+    font-weight: 600 !important;
+    color: #3D2810 !important;
+    background: #FFFFFF !important;
+}
+
+/* Status widget */
+[data-testid="stStatusWidget"] {
+    background: #FFFFFF !important;
+    border: 1px solid #E4DDD3 !important;
+    border-radius: 14px !important;
+}
+
+/* Markdown typography details */
+.stMarkdown p, .stMarkdown li, .stMarkdown strong { color: #2C1A0E !important; }
+.stMarkdown a { color: #8B5E3C !important; }
+.stMarkdown code { background: #F0EBE3 !important; color: #5C3A1E !important; border-radius: 4px; padding: 1px 5px; }
+
+/* Caption rules */
+.stCaption, [data-testid="stCaption"] { color: #7A6353 !important; font-size: 0.8rem !important; }
+
+/* Dividers & Custom scrollbars */
+hr { border-color: #D4C5B0 !important; opacity: 0.5 !important; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #F5F0E8; }
+::-webkit-scrollbar-thumb { background: #C4A882; border-radius: 99px; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── DB helpers ────────────────────────────────────────────────────────────────
-@st.cache_resource
-def get_conn():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
 
+# ---------------------------------------------------------------------------- #
+# Constants
+# ---------------------------------------------------------------------------- #
+POPULAR_COMPANIES = sorted([
+    "Bain & Company", "McKinsey & Company", "BCG", "ZS Associates",
+    "Deloitte", "PwC", "EY", "KPMG", "Accenture", "Oyo",
+    "Zomato", "Swiggy", "Flipkart", "Amazon", "Google", "Microsoft",
+    "Goldman Sachs", "JP Morgan", "Morgan Stanley", "Mastercard", "American Express",
+    "Gartner", "Meesho", "PayTM", "Landmark Group"
+])
 
-@st.cache_data
-def load_all_students():
-    conn = get_conn()
-    return pd.read_sql_query("SELECT * FROM students;", conn)
+# ---------------------------------------------------------------------------- #
+# Session State
+# ---------------------------------------------------------------------------- #
+for key, default in {
+    "analyzed": False, "profile": None, "scorecard": None, "roadmap": None,
+    "coach_history": [], "coach_init_done": False,
+    "stored_api_key": "", "stored_companies": [],
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
 
-
-@st.cache_data
-def load_courses():
-    conn = get_conn()
-    df = pd.read_sql_query(
-        "SELECT * FROM courses WHERE skills_taught IS NOT NULL AND skills_taught != '';", conn
-    )
-    df["skills_text"] = df["skills_taught"].str.replace("|", " ", regex=False)
-    return df
-
-
-@st.cache_data
-def load_skill_weights(role: str) -> dict[str, str]:
-    """Returns {skill: tier} for the given role from the skill_weights table."""
-    conn = get_conn()
-    rows = conn.execute(
-        "SELECT skill, tier FROM skill_weights WHERE role = ? ORDER BY frequency DESC;",
-        (role,)
-    ).fetchall()
-    return {row["skill"]: row["tier"] for row in rows}
-
-
-@st.cache_data
-def get_required_skills(role: str) -> list[str]:
-    conn = get_conn()
-    cur = conn.execute(
-        "SELECT required_skills FROM job_postings WHERE LOWER(job_title)=LOWER(?);", (role,)
-    )
-    # freq map: normalized_key → {count, best_display}
-    freq: dict[str, dict] = {}
-    for row in cur.fetchall():
-        for raw in row["required_skills"].split("|"):
-            raw = raw.strip()
-            if not raw:
-                continue
-            key = normalize_key(raw)
-            pretty = prettify_skill(raw)
-            if key not in freq:
-                freq[key] = {"count": 0, "display": pretty}
-            freq[key]["count"] += 1
-            # Prefer the display name with fewer underscores / more readable
-            if "_" in freq[key]["display"] and "_" not in pretty:
-                freq[key]["display"] = pretty
-    # Sort by frequency descending, return display names
-    sorted_keys = sorted(freq, key=lambda k: freq[k]["count"], reverse=True)
-    return [freq[k]["display"] for k in sorted_keys]
-
-
-# ── ML helpers ────────────────────────────────────────────────────────────────
-def recommend_courses(skill_gap, courses_df, top_n=3):
-    if not skill_gap:
-        return pd.DataFrame()
-    query = " ".join(skill_gap)
-    all_texts = [query] + courses_df["skills_text"].tolist()
-    vec = TfidfVectorizer(stop_words="english")
-    mat = vec.fit_transform(all_texts)
-    scores = cosine_similarity(mat[0:1], mat[1:]).flatten()
-    out = courses_df.copy()
-    out["match_score"] = scores
-    return out.sort_values("match_score", ascending=False).head(top_n).reset_index(drop=True)
-
-
-@st.cache_data
-def build_models():
-    students_df = load_all_students()
-    records = []
-    for _, row in students_df.iterrows():
-        # Normalize student skills by key for matching
-        known_keys = {normalize_key(s) for s in row["current_skills"].split("|") if s.strip()}
-        req_display = get_required_skills(row["target_role"])[:20]
-        req_keys    = {normalize_key(s) for s in req_display}
-        if not req_keys:
-            continue
-        match = len(known_keys & req_keys) / len(req_keys) * 100
-        records.append({
-            "student_id": row["student_id"],
-            "skill_match_score": round(match, 2),
-            "cgpa": float(row["cgpa"]),
-            "skills_known_count": len(known_keys),
-        })
-    df = pd.DataFrame(records)
-
-    # ── Composite employability score: 60% skills, 40% CGPA ──────────────────
-    # CGPA normalized: treat 10.0 as 100%, anything below 6.0 as ~0% contribution
-    # This ensures the model label reflects BOTH academic + skill performance.
-    CGPA_MIN, CGPA_MAX = 6.0, 10.0
-    df["cgpa_norm"] = ((df["cgpa"] - CGPA_MIN) / (CGPA_MAX - CGPA_MIN) * 100).clip(0, 100)
-    df["composite"] = 0.60 * df["skill_match_score"] + 0.40 * df["cgpa_norm"]
-
-    # Split on composite median so both CGPA and skills influence the label
-    median = df["composite"].median()
-    df["employable"] = (df["composite"] >= median).astype(int)
-
-    lr = LogisticRegression(max_iter=500)
-    lr.fit(df[["skill_match_score", "cgpa", "skills_known_count"]].values, df["employable"].values)
-
-    km = KMeans(n_clusters=3, random_state=42, n_init=10)
-    df["cluster"] = km.fit_predict(df[["skill_match_score", "cgpa", "skills_known_count"]].values)
-    df["cluster_label"] = df["cluster"].map(CLUSTER_LABELS)
-    return lr, km, df
-
-
-# ── Gauge chart ───────────────────────────────────────────────────────────────
-def gauge_chart(value, title, color):
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=value,
-        number={"suffix": "%", "font": {"size": 28, "color": "#e2e8f0"}},
-        title={"text": title, "font": {"size": 13, "color": "#94a3b8"}},
-        gauge={
-            "axis": {"range": [0, 100], "tickcolor": "#475569"},
-            "bar": {"color": color},
-            "bgcolor": "rgba(255,255,255,0.05)",
-            "bordercolor": "rgba(255,255,255,0.1)",
-            "steps": [
-                {"range": [0, 40],  "color": "rgba(239,68,68,0.15)"},
-                {"range": [40, 70], "color": "rgba(251,191,36,0.15)"},
-                {"range": [70, 100],"color": "rgba(52,211,153,0.15)"},
-            ],
-        },
-    ))
-    fig.update_layout(
-        height=220, margin=dict(t=30, b=0, l=20, r=20),
-        paper_bgcolor="rgba(0,0,0,0)",
-        font_color="#e2e8f0",
-    )
-    return fig
-
-
-# ── Radar chart ───────────────────────────────────────────────────────────────
-def radar_chart(known_set, required_list):
-    skills = required_list[:8]
-    vals = [1 if s in known_set else 0 for s in skills]
-    fig = go.Figure(go.Scatterpolar(
-        r=vals + [vals[0]],
-        theta=skills + [skills[0]],
-        fill="toself",
-        fillcolor="rgba(167,139,250,0.25)",
-        line=dict(color="#a78bfa", width=2),
-        name="You",
-    ))
-    fig.add_trace(go.Scatterpolar(
-        r=[1]*len(skills) + [1],
-        theta=skills + [skills[0]],
-        fill="toself",
-        fillcolor="rgba(96,165,250,0.1)",
-        line=dict(color="#60a5fa", width=1, dash="dot"),
-        name="Required",
-    ))
-    fig.update_layout(
-        polar=dict(
-            bgcolor="rgba(0,0,0,0)",
-            radialaxis=dict(visible=False, range=[0, 1]),
-            angularaxis=dict(color="#94a3b8"),
-        ),
-        showlegend=True,
-        legend=dict(font=dict(color="#94a3b8")),
-        paper_bgcolor="rgba(0,0,0,0)",
-        margin=dict(t=20, b=20, l=40, r=40),
-        height=280,
-        font_color="#e2e8f0",
-    )
-    return fig
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# UI
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
-<div class="hero">
-  <h1>🎯 SkillBridge</h1>
-  <p>AI-powered Skill Gap Analyzer · Course Recommender · Career Readiness Predictor</p>
-</div>
-""", unsafe_allow_html=True)
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------- #
+# Sidebar
+# ---------------------------------------------------------------------------- #
 with st.sidebar:
-    st.markdown("### ⚙️ Your Profile")
+    st.markdown("## 🎯 SkillBridge")
+    st.caption("Your personal career war room")
+    st.divider()
 
-    # ── Resume Upload ──────────────────────────────────────────────────────────
-    st.markdown("**📄 Upload Resume (PDF)**")
-    st.caption("Auto-fills your name, CGPA and skills")
+    st.markdown('<span class="section-label">📄 Your Resume</span>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
-        "Upload Resume", type=["pdf"], label_visibility="collapsed"
+        "Upload PDF resume", type=["pdf"], label_visibility="collapsed",
+        help="We extract your full story — projects, leadership, CGPA, everything.",
     )
+    st.divider()
 
-    # Parse defaults from resume if uploaded
-    parsed_name   = ""
-    parsed_cgpa   = 7.7
-    parsed_skills = ""
+    st.markdown('<span class="section-label">🏢 Target Companies</span>', unsafe_allow_html=True)
+    st.caption("Pick from the list or type any company not shown")
+    try:
+        target_companies = st.multiselect(
+            "Companies", options=POPULAR_COMPANIES, default=[],
+            placeholder="Bain, PwC, Zomato...", label_visibility="collapsed",
+            accept_new_options=True,
+        )
+    except TypeError:
+        target_companies = st.multiselect(
+            "Companies", options=POPULAR_COMPANIES, default=[],
+            placeholder="Bain, PwC, Zomato...", label_visibility="collapsed",
+        )
+        extra = st.text_input("Add another company", placeholder="Type any firm...")
+        if extra.strip():
+            target_companies = list(target_companies) + [extra.strip()]
+    st.divider()
 
-    if uploaded_file is not None:
-        with st.spinner("📄 Reading resume..."):
-            result = parse_resume(uploaded_file.read())
-        parsed_name   = result["name"]
-        parsed_cgpa   = result["cgpa"] if result["cgpa"] else 7.7
-        parsed_skills = ", ".join(result["skills"])
+    st.markdown('<span class="section-label">🔑 API Key (Gemini, Groq, or OpenAI)</span>', unsafe_allow_html=True)
+    st.caption("Auto-detects: starts with `sk-` (OpenAI), `gsk_` (Groq), otherwise Gemini")
+    api_key = st.text_input(
+        "API Key", type="default", placeholder="Paste key here...", label_visibility="collapsed",
+    )
+    st.divider()
 
-        extracted_count = len(result["skills"])
-        st.success(f"✅ Extracted {extracted_count} skills from your resume!")
+    analyze_btn = st.button("🚀 Run Full Analysis", use_container_width=True, type="primary")
+    if analyze_btn:
+        if not api_key.strip():
+            st.error("Please paste your Gemini API Key first.")
+            st.stop()
+        st.session_state.stored_api_key = api_key.strip()
+        st.session_state.stored_companies = list(target_companies)
+        st.session_state.profile = None
+        st.session_state.scorecard = None
+        st.session_state.roadmap = None
+        st.session_state.coach_history = []
+        st.session_state.coach_init_done = False
+        st.session_state.analyzed = True
 
-        with st.expander("🔍 What was extracted"):
-            st.markdown(f"**Name:** {parsed_name or 'Not detected'}")
-            st.markdown(f"**CGPA:** {parsed_cgpa}")
-            if result["skills"]:
-                chips = " ".join(
-                    f'<span class="chip-blue">{s}</span>' for s in result["skills"]
+# ---------------------------------------------------------------------------- #
+# Landing Page
+# ---------------------------------------------------------------------------- #
+if not st.session_state.analyzed:
+    _, mid, _ = st.columns([1, 4, 1])
+    with mid:
+        st.markdown(
+            "<div style='text-align:center; padding:3rem 0 1.5rem;'>"
+            "<div style='font-size:4.5rem; margin-bottom:0.8rem;'>🎯</div>"
+            "<div style='font-family:\"Lora\",serif; font-size:3.2rem; font-weight:700;"
+            " color:#2C1A0E; margin-bottom:0.35rem; line-height:1.15;'>SkillBridge</div>"
+            "<div style='font-family:\"Lora\",serif; font-size:1.5rem; font-weight:600;"
+            " color:#8B5E3C; letter-spacing:0.05em; margin-bottom:1.3rem;'>Career War Room</div>"
+            "<p style='font-size:1.05rem; color:#5C3A1E; max-width:520px; margin:0 auto;"
+            " line-height:1.8; font-family:Inter,sans-serif;'>"
+            "Upload your resume, pick your target companies, and get a "
+            "<strong>360&#176; audit of your entire story</strong> &mdash; "
+            "leadership, projects, academics &mdash; not just a skills checklist."
+            "</p></div>",
+            unsafe_allow_html=True,
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+        _card = "background:#FFFFFF;border-radius:16px;padding:1.4rem 1rem;border:1px solid #E4DDD3;box-shadow:0 2px 14px rgba(44,26,14,0.07);text-align:center;"
+        for col, icon, title, desc in [
+            (c1, "📄", "Upload Resume",    "PDF parsed holistically — every section, every achievement"),
+            (c2, "🏢", "Pick Companies",   "Type any firm — Bain, PwC, Zomato or beyond"),
+            (c3, "📊", "5-Axis Scorecard", "Calibrated to each company's real hiring bar"),
+            (c4, "🤝", "Career Coach",     "Always-on AI coach in a live right panel"),
+        ]:
+            with col:
+                st.markdown(
+                    f"<div style='{_card}'>"
+                    f"<div style='font-size:2rem;margin-bottom:0.6rem;'>{icon}</div>"
+                    f"<div style='font-weight:700;font-size:0.88rem;color:#3D2810;margin-bottom:0.4rem;'>{title}</div>"
+                    f"<div style='font-size:0.76rem;color:#7A6353;line-height:1.5;'>{desc}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
                 )
-                st.markdown(chips, unsafe_allow_html=True)
-            else:
-                st.caption("No skills matched. Please type them manually below.")
 
-    st.divider()
-
-    # ── Editable Fields (pre-filled from resume or manual) ────────────────────
-    st.markdown("**✏️ Confirm / Edit Your Details**")
-    name        = st.text_input("Your Name", value=parsed_name, placeholder="e.g. Abdullah Khan")
-    cgpa        = st.slider("CGPA", 5.0, 10.0, float(parsed_cgpa), 0.1)
-    target_role = st.selectbox("Target Role", TARGET_ROLES)
-
-    st.markdown("**Your Current Skills**")
-    st.caption("Edit or add more skills (comma-separated)")
-    skills_input = st.text_area(
-        "Skills",
-        value=parsed_skills,
-        placeholder="Python, SQL, Excel, PowerBI...",
-        height=100,
-        label_visibility="collapsed",
-    )
-
-    analyze_btn = st.button("🚀 Analyze My Profile", use_container_width=True, type="primary")
-    st.divider()
-    st.markdown("**💡 Example Skills**")
-    role_examples = {
-        "Data Analyst":          "Python, SQL, Excel, Pandas",
-        "Data Scientist":        "Python, Machine Learning, SQL",
-        "Software Engineer":     "Java, Python, Data Structures, Git",
-        "Web Developer":         "HTML, CSS, JavaScript, React",
-        "Android/iOS Developer": "Swift, Kotlin, Flutter",
-        "Product Manager":       "Communication, Agile, Excel",
-        "Management Consultant": "Excel, PowerPoint, Communication",
-        "Business Analyst":      "SQL, Excel, Business Analysis",
-        "Marketing Analyst":     "Google Analytics, SEO, Excel",
-        "HR Analyst":            "Excel, Talent Acquisition, HRIS",
-        "UX/UI Designer":        "Figma, Wireframing, User Research",
-        "Financial Analyst":     "Excel, Financial Modeling, SQL",
-    }
-    st.code(role_examples.get(target_role, "Python, SQL, Excel"), language=None)
-
-
-# ── Main area placeholder ─────────────────────────────────────────────────────
-if not analyze_btn:
-    st.markdown("""
-    <div class="card" style="text-align:center; padding: 3rem;">
-      <div style="font-size:3.5rem; margin-bottom:1rem;">🎯</div>
-      <h2 style="color:#e2e8f0; margin-bottom:.5rem;">Ready to find your skill gaps?</h2>
-      <p style="color:#94a3b8; margin-bottom: 1.5rem;">Upload your PDF resume on the left to auto-fill your profile,<br>then click <b>Analyze My Profile</b>.</p>
-      <div style="display:flex; gap:1.5rem; justify-content:center; flex-wrap:wrap;">
-        <div class="card" style="padding:.8rem 1.5rem; min-width:160px;">
-          <div style="font-size:1.8rem">📄</div>
-          <div style="color:#a78bfa; font-weight:600; font-size:.85rem;">1. Upload Resume</div>
-        </div>
-        <div class="card" style="padding:.8rem 1.5rem; min-width:160px;">
-          <div style="font-size:1.8rem">✏️</div>
-          <div style="color:#60a5fa; font-weight:600; font-size:.85rem;">2. Confirm Details</div>
-        </div>
-        <div class="card" style="padding:.8rem 1.5rem; min-width:160px;">
-          <div style="font-size:1.8rem">🚀</div>
-          <div style="color:#34d399; font-weight:600; font-size:.85rem;">3. Get Analysis</div>
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        st.markdown(
+            "<div style='text-align:center;margin-top:2rem;font-size:0.95rem;color:#8B5E3C;font-weight:500;'>"
+            "&#8592; Upload your resume &amp; pick companies in the sidebar to begin"
+            "</div>",
+            unsafe_allow_html=True,
+        )
     st.stop()
 
+# ---------------------------------------------------------------------------- #
+# Restore session values (persists through chat reruns)
+# ---------------------------------------------------------------------------- #
+_api_key   = st.session_state.stored_api_key or api_key.strip()
+_companies = st.session_state.stored_companies or list(target_companies)
+coach_obj  = AgenticCareerCoach(_api_key)
 
-# ── Parse inputs ──────────────────────────────────────────────────────────────
-user_name   = name.strip() if name.strip() else "You"
-user_skills = [s.strip().title() for s in skills_input.split(",") if s.strip()] if skills_input else []
+# ---------------------------------------------------------------------------- #
+if st.session_state.profile is None:
+    # Pre-analysis Health Check: Test if the model and API key are working
+    is_healthy, health_err = coach_obj.check_health()
+    if not is_healthy:
+        st.error(
+            f"⚠️ **AI Server is not responsive right now.**\n\n"
+            f"**Error Details:** `{health_err}`\n\n"
+            f"**How to solve this:**\n"
+            f"1. **Wait and Retry:** If using Gemini free tier, Google's server is temporarily overloaded (503). Wait 1–2 minutes and click **'Run Full Analysis'** again.\n"
+            f"2. **Switch Key:** You can paste a free **Groq** API key (starts with `gsk_`) or an **OpenAI** key (starts with `sk-`) in the sidebar to bypass Google's rate limits instantly."
+        )
+        st.session_state.analyzed = False  # Reset landing page state so they can edit inputs
+        st.stop()
 
-if not user_skills:
-    st.warning("⚠️ Please enter at least one skill before analyzing.")
-    st.stop()
+    resume_text = ""
+    if uploaded_file is not None:
+        try:
+            resume_text = extract_text_from_pdf(uploaded_file.read())
+        except Exception as e:
+            st.warning(f"Could not read PDF: {e}. Running without resume text.")
 
+    if not resume_text.strip():
+        resume_text = "No resume provided. Evaluate as a general university student targeting first placement."
 
-# ── Compute ───────────────────────────────────────────────────────────────────
-with st.spinner("Running AI analysis..."):
-    courses_df    = load_courses()
-    lr, km, feat_df = build_models()
+    with st.status("🔍 Analysing your full profile...", expanded=True) as status:
+        st.write("📖 Extracting your story from the resume...")
+        profile = coach_obj.extract_full_profile(resume_text)
+        st.session_state.profile = profile
+        st.write("✅ Profile extracted — name, CGPA, skills, leadership, projects")
 
-    required_skills = get_required_skills(target_role)[:20]
+        companies_label = ", ".join(_companies) if _companies else "top MNCs"
+        st.write(f"📊 Scoring against {companies_label} hiring bar...")
+        scorecard = coach_obj.generate_scorecard(profile, _companies)
+        st.session_state.scorecard = scorecard
+        st.write("✅ Scorecard ready")
 
-    # ── Normalize-key comparison: works regardless of DB storage format ────────
-    # Map normalized_key → display_name for both sides
-    user_norm = {normalize_key(s): s           for s in user_skills}
-    req_norm  = {normalize_key(s): s           for s in required_skills}
+        st.write("🗺 Building your personalised 4-week roadmap...")
+        roadmap = coach_obj.generate_roadmap(profile, _companies)
+        st.session_state.roadmap = roadmap
+        st.write("✅ Roadmap complete")
 
-    # Intersection and gap operate on keys; display names come from user/req maps
-    matched_keys = set(user_norm) & set(req_norm)
-    gap_keys     = set(req_norm) - set(user_norm)
+        status.update(label="✅ Analysis complete!", state="complete", expanded=False)
 
-    # Display sets: use the prettified required-side name for consistency
-    known_set = {req_norm[k] for k in matched_keys}
-    skill_gap = sorted(req_norm[k] for k in gap_keys)
-    match_pct = round(len(matched_keys) / len(req_norm) * 100, 1) if req_norm else 0
+# ---------------------------------------------------------------------------- #
+# Pull cached data
+# ---------------------------------------------------------------------------- #
+profile   = st.session_state.profile   or {}
+scorecard = st.session_state.scorecard or {}
+roadmap   = st.session_state.roadmap   or "_No roadmap generated._"
+name      = profile.get("name") or "Candidate"
+companies_label = ", ".join(_companies) if _companies else "top MNCs"
 
-    # Layer 1
-    top_courses = recommend_courses(skill_gap, courses_df, top_n=3)
-
-    # Layer 2 — Logistic Regression with CGPA adjustment
-    X_pred = np.array([[match_pct, cgpa, len(user_skills)]])
-    base_prob = lr.predict_proba(X_pred)[0][1] * 100
-
-    # Direct CGPA adjustment: model alone may underweight it, so we apply
-    # an explicit linear bonus/penalty based on CGPA relative to 7.5 baseline.
-    # Each 0.5 CGPA above 7.5 → +3 points; below 7.5 → -3 points (capped ±12)
-    cgpa_adjustment = round(((cgpa - 7.5) / 0.5) * 3, 1)
-    cgpa_adjustment = max(-12, min(12, cgpa_adjustment))   # clamp to ±12
-    emp_prob = round(min(100, max(1, base_prob + cgpa_adjustment)), 1)
-
-    # Layer 3
-    cluster_id = int(km.predict(X_pred)[0])
-    cluster_label = CLUSTER_LABELS[cluster_id]
-    peers = int((feat_df["cluster"] == cluster_id).sum())
-
-
-# ── KPI row ───────────────────────────────────────────────────────────────────
-st.markdown(f"### 👋 Hello, {user_name}! Here's your analysis for **{target_role}**")
-st.markdown("")
-
-k1, k2, k3, k4 = st.columns(4)
-
-with k1:
-    st.markdown(f"""
-    <div class="card big-metric">
-      <div class="lbl">Skill Match Score</div>
-      <div class="val" style="color:{'#4ade80' if match_pct>=70 else '#fbbf24' if match_pct>=40 else '#f87171'}">{match_pct}%</div>
-      <div class="lbl">of job requirements</div>
-    </div>""", unsafe_allow_html=True)
-
-with k2:
-    st.markdown(f"""
-    <div class="card big-metric">
-      <div class="lbl">Skills You Have</div>
-      <div class="val" style="color:#4ade80">{len(known_set)}</div>
-      <div class="lbl">matched to role</div>
-    </div>""", unsafe_allow_html=True)
-
-with k3:
-    st.markdown(f"""
-    <div class="card big-metric">
-      <div class="lbl">Skill Gaps</div>
-      <div class="val" style="color:#f87171">{len(skill_gap)}</div>
-      <div class="lbl">skills missing</div>
-    </div>""", unsafe_allow_html=True)
-
-with k4:
-    segment_desc = {
-        "High Achiever 🏆": "Strong profile",
-        "On Track 📈":     "Good progress",
-        "Needs Focus 🎯":  "Gap to close",
-    }
-    desc = segment_desc.get(cluster_label, "")
-    st.markdown(f"""
-    <div class="card big-metric">
-      <div class="lbl">Your Segment</div>
-      <div class="val" style="font-size:1.6rem; color:#a78bfa">{cluster_label.split()[0]}</div>
-      <div class="lbl">{cluster_label.split(maxsplit=1)[1]} · {desc}</div>
-    </div>""", unsafe_allow_html=True)
-
+# ---------------------------------------------------------------------------- #
+# Page Header
+# ---------------------------------------------------------------------------- #
+hc1, _ = st.columns([3, 1])
+with hc1:
+    st.markdown(f"## 👋 Hello, {name}!")
+    if _companies:
+        st.caption(f"Evaluated against: **{companies_label}**")
 st.divider()
 
-# ── Row 2: Gauges + Radar ─────────────────────────────────────────────────────
-col_a, col_b, col_c = st.columns([1, 1, 1.5])
+# ---------------------------------------------------------------------------- #
+# Two-Column Layout
+# ---------------------------------------------------------------------------- #
+col_left, col_right = st.columns([3, 2], gap="large")
 
-with col_a:
-    st.plotly_chart(gauge_chart(match_pct, "Skill Match %",
-        "#4ade80" if match_pct >= 70 else "#fbbf24" if match_pct >= 40 else "#f87171"),
-        use_container_width=True)
-
-with col_b:
-    st.plotly_chart(gauge_chart(emp_prob, "Employability %",
-        "#4ade80" if emp_prob >= 70 else "#fbbf24" if emp_prob >= 40 else "#f87171"),
-        use_container_width=True)
-
-with col_c:
-    st.markdown('<div class="section-label">Skill Radar vs Job Requirements</div>', unsafe_allow_html=True)
-    st.plotly_chart(radar_chart(set(user_skills), required_skills), use_container_width=True)
-
-st.divider()
-
-# ── Row 3: Skills + Courses ───────────────────────────────────────────────────
-col_left, col_right = st.columns([1, 1.2])
-
+# ============================= LEFT PANEL ====================================
 with col_left:
-    st.markdown('<div class="section-label">Skills Breakdown</div>', unsafe_allow_html=True)
 
-    if known_set:
-        st.markdown("**✅ You already have:**")
-        chips = " ".join(f'<span class="chip-green">{s}</span>' for s in sorted(known_set))
-        st.markdown(chips, unsafe_allow_html=True)
+    # --- Full Profile Card ---
+    st.markdown('<span class="section-label">Your Full Profile</span>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
 
-    if skill_gap:
-        weights      = load_skill_weights(target_role)
-        weights_norm = {normalize_key(k): v for k, v in weights.items()}
+    r1c1, r1c2 = st.columns(2)
+    with r1c1:
+        degree  = profile.get("degree", "")
+        college = profile.get("college", "")
+        grad    = profile.get("graduation_year", "")
+        st.markdown(f"**{degree}**" if degree else "**Degree not found**")
+        if college:
+            st.markdown(f"🏛 {college}" + (f" · Class of {grad}" if grad else ""))
+    with r1c2:
+        cgpa = profile.get("cgpa")
+        cgpa_str = f"{float(cgpa):.2f} / 10.0" if cgpa else "N/A"
+        st.markdown(f"**CGPA:** {cgpa_str}")
 
-        must   = [s for s in skill_gap if weights_norm.get(normalize_key(s)) == "Must Learn"]
-        should = [s for s in skill_gap if weights_norm.get(normalize_key(s)) == "Should Learn"]
-        later  = [s for s in skill_gap if weights_norm.get(normalize_key(s)) == "Can Learn Later"]
-        uncat  = [s for s in skill_gap if normalize_key(s) not in weights_norm]
-        later  = later + uncat
+    skills = profile.get("skills", [])
+    if skills:
+        st.markdown("**Skills**")
+        st.markdown("".join(f'<span class="tag">{s}</span>' for s in skills), unsafe_allow_html=True)
 
-        if must:
-            st.markdown("**🔥 Must Learn** *(high demand — appears in 60%+ of job postings)*")
-            chips = " ".join(f'<span class="chip-red">{s}</span>' for s in must)
-            st.markdown(chips, unsafe_allow_html=True)
-        if should:
-            st.markdown("**⚠️ Should Learn** *(commonly required — 30–60% of postings)*")
-            chips = " ".join(f'<span class="chip-red" style="opacity:.75">{s}</span>' for s in should)
-            st.markdown(chips, unsafe_allow_html=True)
-        if later:
-            st.markdown("**💡 Can Learn Later** *(good to have)*")
-            chips = " ".join(f'<span class="chip-red" style="opacity:.45">{s}</span>' for s in later)
-            st.markdown(chips, unsafe_allow_html=True)
+    leadership = profile.get("leadership", [])
+    if leadership:
+        st.markdown("**Leadership & Positions of Responsibility**")
+        st.markdown("".join(f'<span class="tag tag-gold">🏅 {item}</span>' for item in leadership), unsafe_allow_html=True)
 
-    st.markdown("**💼 Top demanded skills for this role:**")
-    chips = " ".join(f'<span class="chip-blue">{s}</span>' for s in required_skills[:10])
-    st.markdown(chips, unsafe_allow_html=True)
+    projects = profile.get("projects", [])
+    if projects:
+        st.markdown("**Projects**")
+        for p in projects:
+            if isinstance(p, dict):
+                n = p.get("name", "Untitled")
+                d = (p.get("description") or "")
+                st.markdown(f"- **{n}** — {d[:140]}{'...' if len(d)>140 else ''}")
+            else:
+                st.markdown(f"- {p}")
 
+    cols3 = st.columns(3)
+    for col, key, label in zip(cols3, ["internships","certifications","awards"], ["Internships","Certifications","Awards"]):
+        items = profile.get(key, [])
+        if items:
+            with col:
+                st.markdown(f"**{label}**")
+                for it in items:
+                    st.markdown(f"- {it}")
+
+    extras = profile.get("extracurriculars", [])
+    if extras:
+        st.markdown("**Extracurriculars**")
+        st.markdown("".join(f'<span class="tag tag-blue">{e}</span>' for e in extras), unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- Scorecard ---
+    st.markdown('<span class="section-label">Scorecard</span>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+
+    highlight = scorecard.get("highlight_bullet", "")
+    if highlight:
+        st.markdown(f'<div class="highlight-box">⭐ <strong>Your strongest point:</strong> {highlight}</div>', unsafe_allow_html=True)
+
+    scores_data = scorecard.get("scores", {})
+    for ax in SCORECARD_AXES:
+        ax_data = scores_data.get(ax) or next(
+            (v for k, v in scores_data.items() if ax.split(" ")[0].lower() in k.lower()), {}
+        )
+        sc      = int(ax_data.get("score", 50)) if isinstance(ax_data, dict) else 50
+        insight = ax_data.get("insight", "")  if isinstance(ax_data, dict) else ""
+        colour  = "#22C55E" if sc >= 78 else ("#F59E0B" if sc >= 58 else "#EF4444")
+        insight_html = f'<div class="score-insight">{insight}</div>' if insight else ""
+        st.markdown(
+            f'<div class="score-wrap">'
+            f'<div class="score-label-row">'
+            f'<span class="score-label-text">{ax}</span>'
+            f'<span class="score-num" style="color:{colour}">{sc}'
+            f'<span style="font-size:0.7rem;color:#9CA3AF">/100</span></span>'
+            f'</div>'
+            f'<div class="score-bar-bg"><div class="score-bar-fill" style="width:{sc}%;background:linear-gradient(90deg,{colour}88,{colour})"></div></div>'
+            f'{insight_html}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    overall = scorecard.get("overall_assessment", "")
+    if overall:
+        st.markdown(f"---\n**Overall:** {overall}")
+
+    red_flags = scorecard.get("red_flags", [])
+    if red_flags:
+        st.markdown("**Areas to address:**")
+        for rf in red_flags:
+            st.markdown(f'<div class="redflag-box">&#9888; {rf}</div>', unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- Roadmap ---
+    with st.expander("🗺  Your 4-Week Learning Roadmap", expanded=False):
+        st.markdown(roadmap)
+
+# ============================= RIGHT PANEL - Career Coach ====================
 with col_right:
-    st.markdown('<div class="section-label">Layer 1 – AI Course Recommendations</div>', unsafe_allow_html=True)
-    st.caption("Powered by TF-IDF Vectorization + Cosine Similarity")
+    st.markdown('<span class="section-label">🤝 Career Coach</span>', unsafe_allow_html=True)
+    st.caption(f"Personal advisor for {companies_label}")
 
-    if top_courses.empty:
-        st.success("🎉 You already have all the required skills! No courses needed.")
-    else:
-        for _, row in top_courses.iterrows():
-            match_pct_c = round(row["match_score"] * 100, 1)
-            st.markdown(f"""
-            <div class="course-card">
-              <h4>📘 {row['course_name']}</h4>
-              <p>{row['platform']} · {row['difficulty']} · ⭐ {row['rating']} · {row['duration_hours']}h</p>
-              <p>Match Score: <b style="color:#a78bfa">{match_pct_c}%</b></p>
-              <a href="{row['url']}" target="_blank">🔗 View Course →</a>
-            </div>""", unsafe_allow_html=True)
+    if not st.session_state.coach_init_done:
+        leadership_mention = f"Your **{leadership[0]}** is a standout — exactly what {companies_label} looks for. " if leadership else ""
+        greeting = (
+            f"Hi {name}! 👋 I've read your full profile. "
+            f"{leadership_mention}"
+            f"I can help you prep for interviews, walk through case frameworks, or sharpen your story for {companies_label}. "
+            f"What would you like to work on?"
+        )
+        st.session_state.coach_history.append({"role": "assistant", "content": greeting})
+        st.session_state.coach_init_done = True
 
+    try:
+        chat_box = st.container(height=420)
+    except TypeError:
+        chat_box = st.container()
+
+    with chat_box:
+        for msg in st.session_state.coach_history:
+            css_class = "user-bubble" if msg["role"] == "user" else "coach-bubble"
+            st.markdown(f'<div class="{css_class}">{msg["content"]}</div>', unsafe_allow_html=True)
+
+    with st.form("coach_form", clear_on_submit=True):
+        user_input = st.text_input(
+            "coach_input", placeholder="Ask Career Coach anything...", label_visibility="collapsed",
+        )
+        send_btn = st.form_submit_button("Send →", use_container_width=True)
+
+    if send_btn and user_input.strip():
+        st.session_state.coach_history.append({"role": "user", "content": user_input.strip()})
+        with st.spinner("Career Coach is thinking..."):
+            reply = coach_obj.chat_coach(
+                st.session_state.coach_history, user_input.strip(), profile, _companies,
+            )
+        st.session_state.coach_history.append({"role": "assistant", "content": reply})
+        st.rerun()
+
+# ---------------------------------------------------------------------------- #
+# Footer
+# ---------------------------------------------------------------------------- #
 st.divider()
-
-# ── Row 4: ML Layers summary ──────────────────────────────────────────────────
-st.markdown('<div class="section-label">Layer 2 & 3 – Employability & Segmentation</div>', unsafe_allow_html=True)
-
-c1, c2 = st.columns(2)
-
-with c1:
-    color = "#4ade80" if emp_prob >= 70 else "#fbbf24" if emp_prob >= 40 else "#f87171"
-    status = "Likely to pass resume screening ✅" if emp_prob >= 50 else "Skill gap too large ⚠️"
-    advice = (
-        "Great profile! Keep polishing your projects."
-        if emp_prob >= 70 else
-        "Close 3–5 skill gaps to significantly boost your score."
-        if emp_prob >= 40 else
-        f"Focus on: {', '.join(skill_gap[:3])} first."
-    )
-    st.markdown(f"""
-    <div class="card">
-      <h3>📈 Logistic Regression – Employability Predictor</h3>
-      <div style="font-size:2.5rem; font-weight:800; color:{color}">{emp_prob}%</div>
-      <div style="color:#94a3b8; margin:.4rem 0">{status}</div>
-      <div style="color:#e2e8f0; font-size:.88rem; background:rgba(255,255,255,0.05);
-           padding:.6rem .9rem; border-radius:8px; margin-top:.5rem">
-        💡 {advice}
-      </div>
-    </div>""", unsafe_allow_html=True)
-
-with c2:
-    # Segment descriptions — based on user's own scores, no fake peer references
-    segment_details = {
-        "High Achiever 🏆": {
-            "icon": "🏆",
-            "color": "#4ade80",
-            "title": "High Achiever",
-            "desc": "Your skill match and academic profile are strong. You are well-positioned for this role.",
-            "tip": "Polish 1–2 remaining gaps and add a portfolio project to stand out further.",
-        },
-        "On Track 📈": {
-            "icon": "📈",
-            "color": "#60a5fa",
-            "title": "On Track",
-            "desc": "You have a solid foundation for this role with room to grow in a few key areas.",
-            "tip": "Target the top 3 missing skills with focused short courses to jump to High Achiever.",
-        },
-        "Needs Focus 🎯": {
-            "icon": "🎯",
-            "color": "#f87171",
-            "title": "Needs Focus",
-            "desc": "Your skill gap for this role is significant. This is a great starting point to build from.",
-            "tip": f"Start with the courses recommended above. Closing 5+ gaps will dramatically improve your score.",
-        },
-    }
-    info = segment_details.get(cluster_label, segment_details["Needs Focus 🎯"])
-    st.markdown(f"""
-    <div class="card">
-      <h3>🏷️ K-Means Clustering – Career Readiness</h3>
-      <div style="font-size:2rem; margin:.4rem 0">{info['icon']}</div>
-      <div style="font-size:1.2rem; font-weight:700; color:{info['color']}; margin-bottom:.5rem">{info['title']}</div>
-      <div style="color:#cbd5e1; font-size:.88rem; margin-bottom:.7rem">{info['desc']}</div>
-      <div style="color:#e2e8f0; font-size:.85rem; background:rgba(255,255,255,0.05);
-           padding:.6rem .9rem; border-radius:8px">
-        💡 {info['tip']}
-      </div>
-    </div>""", unsafe_allow_html=True)
-
-st.divider()
-
-# ── Action Plan ───────────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">📋 Your Personalized Action Plan</div>', unsafe_allow_html=True)
-top3_gap = skill_gap[:3]
-top_course_name = top_courses.iloc[0]["course_name"] if not top_courses.empty else "N/A"
-
-st.markdown(f"""
-<div class="card">
-  <table style="width:100%; color:#e2e8f0; font-size:.9rem; border-collapse:collapse;">
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
-      <td style="padding:.6rem; color:#a78bfa; font-weight:600">Step 1</td>
-      <td style="padding:.6rem">Fix your top skill gaps: <b>{', '.join(top3_gap) if top3_gap else 'None!'}</b></td>
-    </tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
-      <td style="padding:.6rem; color:#a78bfa; font-weight:600">Step 2</td>
-      <td style="padding:.6rem">Start with: <b>{top_course_name}</b></td>
-    </tr>
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
-      <td style="padding:.6rem; color:#a78bfa; font-weight:600">Step 3</td>
-      <td style="padding:.6rem">Raise your match score from <b>{match_pct}%</b> → target <b>70%+</b></td>
-    </tr>
-    <tr>
-      <td style="padding:.6rem; color:#a78bfa; font-weight:600">Step 4</td>
-      <td style="padding:.6rem">Build 1 project using your top skills and deploy it on Streamlit or GitHub</td>
-    </tr>
-  </table>
-</div>
-""", unsafe_allow_html=True)
-
-st.caption("Built with SQL · Scikit-Learn · Streamlit · Plotly  |  Data: Kaggle Coursera + Google Jobs datasets")
+st.markdown(
+    '<div style="text-align:center;color:#B8A898;font-size:0.76rem;padding-bottom:0.5rem;">'
+    "SkillBridge &middot; Powered by Gemini &middot; Built for placement season"
+    "</div>",
+    unsafe_allow_html=True,
+)
