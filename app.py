@@ -380,7 +380,7 @@ with st.sidebar:
     analyze_btn = st.button("🚀 Run Full Analysis", use_container_width=True, type="primary")
     if analyze_btn:
         if not api_key.strip():
-            st.error("Please paste your Gemini API Key first.")
+            st.error("Please paste your API Key first.")
             st.stop()
         st.session_state.stored_api_key = api_key.strip()
         st.session_state.stored_companies = list(target_companies)
