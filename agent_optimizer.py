@@ -284,16 +284,16 @@ class AgenticCareerCoach:
     # ═══════════════════════════════════════════════════════════════════════════
     # Agent 2: Scorecard Generator (RAG-grounded)
     # ═══════════════════════════════════════════════════════════════════════════
-    def generate_scorecard(self, profile: dict, target_companies: list) -> dict:
+    def generate_scorecard(self, profile: dict, target_companies: list, target_role: str = "General Role") -> dict:
         """
-        5-axis scorecard calibrated to the hiring bar of the selected companies.
+        5-axis scorecard calibrated to the hiring bar of the selected companies and role.
         Grounded in real job postings via RAG.
         """
         companies_str = ", ".join(target_companies) if target_companies else "top MNCs"
         job_ctx = self._load_job_context(target_companies)
 
         system = (
-            f"You are a veteran recruiter at {companies_str}. Evaluate this candidate holistically and honestly. "
+            f"You are a veteran recruiter hiring a {target_role} at {companies_str}. Evaluate this candidate holistically and honestly. "
             f"Score 0–100 on five axes: Technical Depth, Leadership & Initiative, "
             f"Communication & Presentation, Business Acumen, Role Fit. "
             f"Be calibrated — a score of 80+ should be genuinely rare and impressive. "
@@ -337,9 +337,9 @@ class AgenticCareerCoach:
     # ═══════════════════════════════════════════════════════════════════════════
     # Agent 3: RAG Learning Roadmap
     # ═══════════════════════════════════════════════════════════════════════════
-    def generate_roadmap(self, profile: dict, target_companies: list, timeline: str = "4 Weeks") -> dict:
+    def generate_roadmap(self, profile: dict, target_companies: list, timeline: str = "4 Weeks", target_role: str = "General Role") -> dict:
         """
-        Dynamic preparation plan tailored to the companies' actual hiring process.
+        Dynamic preparation plan tailored to the companies' and role's actual hiring process.
         Course recommendations sourced from courses.csv via RAG.
         Outputs a JSON schema for a flowchart/timeline.
         """
@@ -348,7 +348,7 @@ class AgenticCareerCoach:
         name = profile.get("name", "the candidate")
 
         system = (
-            f"You are an elite career mentor who has placed hundreds of students at {companies_str}. "
+            f"You are an elite career mentor who has placed hundreds of students as {target_role}s at {companies_str}. "
             f"Design a personalised {timeline} preparation plan for {name} based on their full profile. "
             f"Tailor the plan to {companies_str}'s specific interview process and hiring bar. "
             f"Recommend specific courses from the provided list. "
@@ -398,11 +398,11 @@ class AgenticCareerCoach:
     # Agent 4: Career Coach — Conversational Career Advisor
     # ═══════════════════════════════════════════════════════════════════════════
     def chat_coach(
-        self, history: list, user_message: str, profile: dict, target_companies: list
+        self, history: list, user_message: str, profile: dict, target_companies: list, target_role: str = "General Role"
     ) -> str:
         """
-        Always-on conversational coach with full profile and company context.
-        Adapts its style based on which companies the user is targeting.
+        Always-on conversational coach with full profile and company/role context.
+        Adapts its style based on which companies and role the user is targeting.
         """
         companies_str = ", ".join(target_companies) if target_companies else "top MNCs"
         name = profile.get("name", "you")
@@ -410,8 +410,8 @@ class AgenticCareerCoach:
 
         system = (
             f"You are 'Career Coach', a sharp and encouraging personal career advisor for {name}. "
-            f"You know their complete profile and they are targeting {companies_str}. "
-            f"Adapt your advice style to the companies:\n"
+            f"You know their complete profile and they are targeting a {target_role} role at {companies_str}. "
+            f"Adapt your advice style to the role and companies:\n"
             f"  • Consulting (Bain, McKinsey, BCG, PwC, EY, Deloitte, KPMG, Accenture): "
             f"Case frameworks (MECE, Issue Trees), guesstimates, behavioral STAR stories.\n"
             f"  • Analytics (ZS, KPMG Analytics): SQL queries, Excel modelling, business analytics.\n"
@@ -440,6 +440,7 @@ class AgenticCareerCoach:
             f"Leadership: {leadership_str}\n"
             f"Projects: {projects_str}\n"
             f"Internships: {', '.join(profile.get('internships', []))}\n"
+            f"Target Role: {target_role}\n"
             f"Target companies: {companies_str}"
         )
 

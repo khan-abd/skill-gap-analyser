@@ -424,6 +424,7 @@ for key, default in {
     "analyzed": False, "profile": None, "scorecard": None, "roadmap": None,
     "coach_history": [], "coach_init_done": False,
     "stored_api_key": "", "stored_companies": [], "stored_timeline": "4 Weeks",
+    "stored_role": "",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -461,6 +462,13 @@ with st.sidebar:
             target_companies = list(target_companies) + [extra.strip()]
     st.divider()
 
+    st.markdown('<span class="section-label">🎯 Target Role</span>', unsafe_allow_html=True)
+    st.caption("What job are you aiming for?")
+    target_role = st.text_input(
+        "Role", placeholder="e.g. Data Scientist, HR Manager, Hardware Engineer...", label_visibility="collapsed",
+    )
+    st.divider()
+
     st.markdown('<span class="section-label">🔑 API Key (Gemini, Groq, or OpenAI)</span>', unsafe_allow_html=True)
     st.caption("Auto-detects: starts with `sk-` (OpenAI), `gsk_` (Groq), otherwise Gemini")
     api_key = st.text_input(
@@ -485,6 +493,7 @@ with st.sidebar:
         st.session_state.stored_api_key = api_key.strip()
         st.session_state.stored_companies = list(target_companies)
         st.session_state.stored_timeline = prep_timeline
+        st.session_state.stored_role = target_role.strip() or "General Applicant"
         st.session_state.profile = None
         st.session_state.scorecard = None
         st.session_state.roadmap = None
@@ -546,6 +555,7 @@ if not st.session_state.analyzed:
 _api_key   = st.session_state.stored_api_key or api_key.strip()
 _companies = st.session_state.stored_companies or list(target_companies)
 _timeline  = st.session_state.stored_timeline or "4 Weeks"
+_role      = st.session_state.stored_role or "General Applicant"
 coach_obj  = AgenticCareerCoach(_api_key)
 
 # ---------------------------------------------------------------------------- #
@@ -580,13 +590,13 @@ if st.session_state.profile is None:
         st.write("✅ Profile extracted — name, CGPA, skills, leadership, projects")
 
         companies_label = ", ".join(_companies) if _companies else "top MNCs"
-        st.write(f"📊 Scoring against {companies_label} hiring bar...")
-        scorecard = coach_obj.generate_scorecard(profile, _companies)
+        st.write(f"📊 Scoring against {companies_label} hiring bar for {_role}...")
+        scorecard = coach_obj.generate_scorecard(profile, _companies, _role)
         st.session_state.scorecard = scorecard
         st.write("✅ Scorecard ready")
 
         st.write(f"🗺 Building your personalised {_timeline} roadmap...")
-        roadmap = coach_obj.generate_roadmap(profile, _companies, _timeline)
+        roadmap = coach_obj.generate_roadmap(profile, _companies, _timeline, _role)
         st.session_state.roadmap = roadmap
         st.write("✅ Roadmap complete")
 
@@ -600,6 +610,7 @@ scorecard = st.session_state.scorecard or {}
 roadmap   = st.session_state.roadmap   or {}
 name      = profile.get("name") or "Candidate"
 companies_label = ", ".join(_companies) if _companies else "top MNCs"
+role_label = _role if _role and _role != "General Applicant" else ""
 
 # ---------------------------------------------------------------------------- #
 # Page Header
@@ -607,8 +618,9 @@ companies_label = ", ".join(_companies) if _companies else "top MNCs"
 hc1, _ = st.columns([3, 1])
 with hc1:
     st.markdown(f"## 👋 Hello, {name}!")
-    if _companies:
-        st.caption(f"Evaluated against: **{companies_label}**")
+    eval_text = f"Evaluated for: **{role_label}** at **{companies_label}**" if role_label else f"Evaluated against: **{companies_label}**"
+    if _companies or role_label:
+        st.caption(eval_text)
 st.divider()
 
 # ---------------------------------------------------------------------------- #
@@ -839,11 +851,12 @@ with col_right:
     st.caption(f"Personal advisor for {companies_label}")
 
     if not st.session_state.coach_init_done:
+        role_mention = f"a {role_label} role at " if role_label else ""
         leadership_mention = f"Your **{leadership[0]}** is a standout — exactly what {companies_label} looks for. " if leadership else ""
         greeting = (
             f"Hi {name}! 👋 I've read your full profile. "
             f"{leadership_mention}"
-            f"I can help you prep for interviews, walk through case frameworks, or sharpen your story for {companies_label}. "
+            f"I can help you prep for interviews, walk through case frameworks, or sharpen your story for {role_mention}{companies_label}. "
             f"What would you like to work on?"
         )
         st.session_state.coach_history.append({"role": "assistant", "content": greeting})
@@ -869,7 +882,7 @@ with col_right:
         st.session_state.coach_history.append({"role": "user", "content": user_input.strip()})
         with st.spinner("Career Coach is thinking..."):
             reply = coach_obj.chat_coach(
-                st.session_state.coach_history, user_input.strip(), profile, _companies,
+                st.session_state.coach_history, user_input.strip(), profile, _companies, _role
             )
         st.session_state.coach_history.append({"role": "assistant", "content": reply})
         st.rerun()
