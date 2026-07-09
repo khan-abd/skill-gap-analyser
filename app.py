@@ -125,36 +125,127 @@ h3 { font-size: 1.1rem !important; font-weight: 600 !important; }
 /* Section labels */
 .section-label {
     font-family: 'Lora', serif;
-    font-size: 0.74rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: #8B5E3C !important;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    margin-bottom: 0.65rem;
+    margin-bottom: 0.8rem;
     display: block;
 }
 
 /* Tags */
-.tag { display:inline-block; background:#F0EBE3; color:#6F4A2E !important; border-radius:20px; padding:3px 11px; font-size:0.75rem; font-weight:500; margin:2px 3px 2px 0; border:1px solid #D4C5B0; }
+.tag { display:inline-block; background:#F0EBE3; color:#6F4A2E !important; border-radius:20px; padding:4px 14px; font-size:0.9rem; font-weight:500; margin:3px 4px 3px 0; border:1px solid #D4C5B0; }
 .tag-gold { background:#FFF8EE; color:#A0622A !important; border:1px solid #F0C87A; }
 .tag-blue { background:#EFF6FF; color:#1E40AF !important; border:1px solid #BFDBFE; }
 
 /* Score bars */
-.score-wrap { margin-bottom: 1rem; }
-.score-label-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
-.score-label-text { font-size:0.85rem; font-weight:500; color:#3D2810 !important; }
-.score-num { font-family:'Lora',serif; font-size:1rem; font-weight:700; }
-.score-bar-bg { background:#EDE7D9; border-radius:99px; height:9px; overflow:hidden; }
-.score-bar-fill { height:9px; border-radius:99px; }
-.score-insight { font-size:0.90rem; color:#4A3525 !important; margin-top:6px; line-height:1.45; }
+.score-wrap { margin-bottom: 1.25rem; }
+.score-label-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.score-label-text { font-size:1.05rem; font-weight:600; color:#3D2810 !important; }
+.score-num { font-family:'Lora',serif; font-size:1.25rem; font-weight:700; }
+.score-bar-bg { background:#EDE7D9; border-radius:99px; height:11px; overflow:hidden; }
+.score-bar-fill { height:11px; border-radius:99px; }
+.score-insight { font-size:1.05rem; color:#4A3525 !important; margin-top:8px; line-height:1.5; }
 
 /* Chat bubbles */
-.user-bubble { background:#8B5E3C; color:#FFFFFF !important; border-radius:18px 18px 4px 18px; padding:0.55rem 0.95rem; margin:0.3rem 0 0.3rem 15%; font-size:0.86rem; line-height:1.5; word-wrap:break-word; }
-.coach-bubble { background:#F5F0E8; color:#2C1A0E !important; border-radius:18px 18px 18px 4px; padding:0.55rem 0.95rem; margin:0.3rem 15% 0.3rem 0; font-size:0.86rem; line-height:1.5; border:1px solid #E4DDD3; word-wrap:break-word; }
+.user-bubble { background:#8B5E3C; color:#FFFFFF !important; border-radius:18px 18px 4px 18px; padding:0.75rem 1.1rem; margin:0.4rem 0 0.4rem 10%; font-size:1.05rem; line-height:1.5; word-wrap:break-word; }
+.coach-bubble { background:#F5F0E8; color:#2C1A0E !important; border-radius:18px 18px 18px 4px; padding:0.75rem 1.1rem; margin:0.4rem 10% 0.4rem 0; font-size:1.05rem; line-height:1.5; border:1px solid #E4DDD3; word-wrap:break-word; }
 
 /* Highlight / alert boxes */
-.highlight-box { background:linear-gradient(135deg,#FFF8EE,#FFF2DD); border-left:4px solid #C4956A; border-radius:0 12px 12px 0; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.88rem; color:#5C3A1E !important; line-height:1.5; }
-.redflag-box { background:#FFF5F5; border-left:4px solid #F87171; border-radius:0 10px 10px 0; padding:0.45rem 0.8rem; font-size:0.82rem; color:#7F1D1D !important; margin:0.25rem 0; line-height:1.4; }
+.highlight-box { background:linear-gradient(135deg,#FFF8EE,#FFF2DD); border-left:5px solid #C4956A; border-radius:0 12px 12px 0; padding:1rem 1.25rem; margin-bottom:1.25rem; font-size:1.1rem; color:#5C3A1E !important; line-height:1.6; }
+.redflag-box { background:#FFF5F5; border-left:5px solid #F87171; border-radius:0 10px 10px 0; padding:0.6rem 1rem; font-size:1.05rem; color:#7F1D1D !important; margin:0.35rem 0; line-height:1.5; }
+
+/* Expander styling to remove white rectangle */
+[data-testid="stExpander"] {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+[data-testid="stExpander"] div[role="button"] {
+    background-color: transparent !important;
+    border: 1px solid #E4DDD3 !important;
+    border-radius: 12px !important;
+}
+[data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
+    background-color: #FFFFFF !important;
+    border-radius: 16px !important;
+    padding: 1.5rem !important;
+    box-shadow: 0 2px 16px rgba(44, 26, 14, 0.07) !important;
+    border: 1px solid #E4DDD3 !important;
+    margin-top: 0.5rem !important;
+}
+
+/* Timeline Flowchart Styling */
+.timeline-container {
+    position: relative;
+    padding-left: 2rem;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+.timeline-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 8px;
+    width: 3px;
+    background: #E4DDD3;
+    border-radius: 3px;
+}
+.timeline-item {
+    position: relative;
+    margin-bottom: 2rem;
+}
+.timeline-marker {
+    position: absolute;
+    left: -2rem;
+    top: 0.25rem;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: #8B5E3C;
+    border: 3px solid #FFF8EE;
+    box-shadow: 0 0 0 2px #E4DDD3;
+    z-index: 1;
+}
+.timeline-content {
+    background: #FFFFFF;
+    border: 1px solid #E4DDD3;
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    box-shadow: 0 2px 10px rgba(44, 26, 14, 0.05);
+}
+.timeline-timeframe {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #C4956A;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+}
+.timeline-title {
+    font-family: 'Lora', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #2C1A0E;
+    margin-bottom: 0.75rem;
+}
+.timeline-task {
+    font-size: 1rem;
+    color: #4A3525;
+    line-height: 1.6;
+    margin-bottom: 0.4rem;
+    padding-left: 1.2rem;
+    position: relative;
+}
+.timeline-task::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: #8B5E3C;
+    font-weight: 700;
+}
 
 /* Buttons styling (with readable text) */
 .stButton > button[kind="primary"] {
@@ -332,7 +423,7 @@ POPULAR_COMPANIES = sorted([
 for key, default in {
     "analyzed": False, "profile": None, "scorecard": None, "roadmap": None,
     "coach_history": [], "coach_init_done": False,
-    "stored_api_key": "", "stored_companies": [],
+    "stored_api_key": "", "stored_companies": [], "stored_timeline": "4 Weeks",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -377,6 +468,15 @@ with st.sidebar:
     )
     st.divider()
 
+    st.markdown('<span class="section-label">⏳ Preparation Timeline</span>', unsafe_allow_html=True)
+    st.caption("How much time do you have?")
+    prep_timeline = st.selectbox(
+        "Timeline", 
+        options=["1 Week", "2 Weeks", "4 Weeks", "3 Months", "6 Months"], 
+        index=2, label_visibility="collapsed"
+    )
+    st.divider()
+
     analyze_btn = st.button("🚀 Run Full Analysis", use_container_width=True, type="primary")
     if analyze_btn:
         if not api_key.strip():
@@ -384,6 +484,7 @@ with st.sidebar:
             st.stop()
         st.session_state.stored_api_key = api_key.strip()
         st.session_state.stored_companies = list(target_companies)
+        st.session_state.stored_timeline = prep_timeline
         st.session_state.profile = None
         st.session_state.scorecard = None
         st.session_state.roadmap = None
@@ -444,6 +545,7 @@ if not st.session_state.analyzed:
 # ---------------------------------------------------------------------------- #
 _api_key   = st.session_state.stored_api_key or api_key.strip()
 _companies = st.session_state.stored_companies or list(target_companies)
+_timeline  = st.session_state.stored_timeline or "4 Weeks"
 coach_obj  = AgenticCareerCoach(_api_key)
 
 # ---------------------------------------------------------------------------- #
@@ -483,8 +585,8 @@ if st.session_state.profile is None:
         st.session_state.scorecard = scorecard
         st.write("✅ Scorecard ready")
 
-        st.write("🗺 Building your personalised 4-week roadmap...")
-        roadmap = coach_obj.generate_roadmap(profile, _companies)
+        st.write(f"🗺 Building your personalised {_timeline} roadmap...")
+        roadmap = coach_obj.generate_roadmap(profile, _companies, _timeline)
         st.session_state.roadmap = roadmap
         st.write("✅ Roadmap complete")
 
@@ -495,7 +597,7 @@ if st.session_state.profile is None:
 # ---------------------------------------------------------------------------- #
 profile   = st.session_state.profile   or {}
 scorecard = st.session_state.scorecard or {}
-roadmap   = st.session_state.roadmap   or "_No roadmap generated._"
+roadmap   = st.session_state.roadmap   or {}
 name      = profile.get("name") or "Candidate"
 companies_label = ", ".join(_companies) if _companies else "top MNCs"
 
@@ -529,32 +631,32 @@ with col_left:
     profile_html = f'<div class="card">'
     profile_html += f'<div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1rem; border-bottom:1px solid #F0EBE3; padding-bottom:0.75rem;">'
     profile_html += f'  <div>'
-    profile_html += f'    <div style="font-size:1.05rem; font-weight:700; color:#2C1A0E;">{degree}</div>'
+    profile_html += f'    <div style="font-size:1.3rem; font-weight:700; color:#2C1A0E;">{degree}</div>'
     if college:
-        profile_html += f'    <div style="font-size:0.86rem; color:#7A6353; margin-top:2px;">🏛 {college}' + (f' · Class of {grad}' if grad else '') + f'</div>'
+        profile_html += f'    <div style="font-size:1.1rem; color:#7A6353; margin-top:4px;">🏛 {college}' + (f' · Class of {grad}' if grad else '') + f'</div>'
     profile_html += f'  </div>'
-    profile_html += f'  <div style="font-size:0.95rem; font-weight:700; color:#2C1A0E;">CGPA: <span style="color:#8B5E3C;">{cgpa_str}</span></div>'
+    profile_html += f'  <div style="font-size:1.15rem; font-weight:700; color:#2C1A0E;">CGPA: <span style="color:#8B5E3C;">{cgpa_str}</span></div>'
     profile_html += f'</div>'
     
     skills = profile.get("skills", [])
     if skills:
-        profile_html += f'<div style="margin-bottom:1rem;">'
-        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Skills</div>'
+        profile_html += f'<div style="margin-bottom:1.2rem;">'
+        profile_html += f'  <div style="font-size:0.95rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">Skills</div>'
         profile_html += "".join(f'<span class="tag">{s}</span>' for s in skills)
         profile_html += f'</div>'
         
     leadership = profile.get("leadership", [])
     if leadership:
-        profile_html += f'<div style="margin-bottom:1rem;">'
-        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Leadership & Positions of Responsibility</div>'
+        profile_html += f'<div style="margin-bottom:1.2rem;">'
+        profile_html += f'  <div style="font-size:0.95rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">Leadership & Positions of Responsibility</div>'
         profile_html += "".join(f'<span class="tag tag-gold">🏅 {item}</span>' for item in leadership)
         profile_html += f'</div>'
         
     projects = profile.get("projects", [])
     if projects:
-        profile_html += f'<div style="margin-bottom:1rem;">'
-        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Projects</div>'
-        profile_html += f'  <ul style="margin:0; padding-left:1.2rem; font-size:0.86rem; color:#2C1A0E; line-height:1.5;">'
+        profile_html += f'<div style="margin-bottom:1.2rem;">'
+        profile_html += f'  <div style="font-size:0.95rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">Projects</div>'
+        profile_html += f'  <ul style="margin:0; padding-left:1.2rem; font-size:1.05rem; color:#2C1A0E; line-height:1.6;">'
         for p in projects:
             if isinstance(p, dict):
                 n = p.get("name", "Untitled")
@@ -573,11 +675,11 @@ with col_left:
             cols_data.append((label, items))
             
     if cols_data:
-        profile_html += f'<div style="display:flex; gap:1.5rem; margin-bottom:1rem;">'
+        profile_html += f'<div style="display:flex; gap:1.5rem; margin-bottom:1.2rem;">'
         for label, items in cols_data:
             profile_html += f'  <div style="flex:1; min-width:0;">'
-            profile_html += f'    <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">{label}</div>'
-            profile_html += f'    <ul style="margin:0; padding-left:1.1rem; font-size:0.84rem; color:#2C1A0E; line-height:1.4;">'
+            profile_html += f'    <div style="font-size:0.95rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">{label}</div>'
+            profile_html += f'    <ul style="margin:0; padding-left:1.1rem; font-size:1.0rem; color:#2C1A0E; line-height:1.5;">'
             for it in items:
                 profile_html += f'      <li style="margin-bottom:0.25rem;">{it}</li>'
             profile_html += f'    </ul>'
@@ -586,8 +688,8 @@ with col_left:
         
     extras = profile.get("extracurriculars", [])
     if extras:
-        profile_html += f'<div style="margin-bottom:0.5rem;">'
-        profile_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Extracurriculars</div>'
+        profile_html += f'<div style="margin-bottom:0.8rem;">'
+        profile_html += f'  <div style="font-size:0.95rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">Extracurriculars</div>'
         profile_html += "".join(f'<span class="tag tag-blue">{e}</span>' for e in extras)
         profile_html += f'</div>'
         
@@ -602,22 +704,23 @@ with col_left:
     # Semicircle Donut Gauge for Skill Match
     match_pct = scorecard.get("skill_match_percentage", 50)
     dash_offset = 125.66 * (1 - (match_pct / 100.0))
+    donut_color = "#22C55E" if match_pct >= 78 else ("#F59E0B" if match_pct >= 58 else "#EF4444")
     
     scorecard_html += (
-        f'<div style="display:flex; justify-content:center; align-items:center; flex-direction:column; margin-bottom:1.5rem; padding-bottom:1.2rem; border-bottom:1px solid #F0EBE3;">'
-        f'  <div style="position:relative; width:180px; height:90px; overflow:hidden;">'
+        f'<div style="display:flex; justify-content:center; align-items:center; flex-direction:column; margin-bottom:2rem; padding-bottom:1.5rem; border-bottom:1px solid #F0EBE3;">'
+        f'  <div style="position:relative; width:220px; height:110px; overflow:hidden;">'
         f'    <svg viewBox="0 0 100 50" style="width:100%; height:100%;">'
         f'      <!-- Background Track -->'
         f'      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#EDE7D9" stroke-width="11" stroke-linecap="round"/>'
         f'      <!-- Filled Track -->'
-        f'      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#8B5E3C" stroke-width="11" stroke-linecap="round"'
+        f'      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="{donut_color}" stroke-width="11" stroke-linecap="round"'
         f'            stroke-dasharray="125.66" stroke-dashoffset="{dash_offset}"'
         f'            style="transition: stroke-dashoffset 0.6s ease-out;"/>'
         f'    </svg>'
-        f'    <!-- Center Text -->'
-        f'    <div style="position:absolute; bottom:0; left:0; right:0; text-align:center;">'
-        f'      <span style="font-family:\'Lora\',serif; font-size:1.8rem; font-weight:700; color:#2C1A0E;">{match_pct}%</span>'
-        f'      <div style="font-size:0.75rem; color:#7A6353; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-top:-2px;">Skill Match</div>'
+        f'    <!-- Center Text (Perfectly centered vertically and horizontally inside the container) -->'
+        f'    <div style="position:absolute; top:75%; left:50%; transform:translate(-50%, -50%); text-align:center;">'
+        f'      <span style="font-family:\'Lora\',serif; font-size:2.4rem; font-weight:700; color:#2C1A0E; line-height:1;">{match_pct}%</span>'
+        f'      <div style="font-size:0.95rem; color:#7A6353; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-top:2px;">Skill Match</div>'
         f'    </div>'
         f'  </div>'
         f'</div>'
@@ -654,14 +757,14 @@ with col_left:
         
     overall = scorecard.get("overall_assessment", "")
     if overall:
-        scorecard_html += f'<div style="border-top: 1px solid #E4DDD3; padding-top:0.75rem; margin-top:1rem; font-size:0.88rem; color:#2C1A0E; line-height:1.5;">'
+        scorecard_html += f'<div style="border-top: 1px solid #E4DDD3; padding-top:1rem; margin-top:1.25rem; font-size:1.1rem; color:#2C1A0E; line-height:1.6;">'
         scorecard_html += f'  <strong>Overall Assessment:</strong> {overall}'
         scorecard_html += f'</div>'
         
     red_flags = scorecard.get("red_flags", [])
     if red_flags:
-        scorecard_html += f'<div style="margin-top:1rem;">'
-        scorecard_html += f'  <div style="font-size:0.78rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem;">Areas to address:</div>'
+        scorecard_html += f'<div style="margin-top:1.25rem;">'
+        scorecard_html += f'  <div style="font-size:0.95rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">Areas to address:</div>'
         for rf in red_flags:
             scorecard_html += f'<div class="redflag-box">&#9888; {rf}</div>'
         scorecard_html += f'</div>'
@@ -670,19 +773,19 @@ with col_left:
     must_learn = scorecard.get("must_learn_immediately", [])
     may_learn = scorecard.get("may_learn_future", [])
     if must_learn or may_learn:
-        scorecard_html += f'<div style="border-top: 1px solid #E4DDD3; margin-top:1rem; padding-top:1rem;">'
-        scorecard_html += f'  <div style="font-size:0.8rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.6rem;">🎯 Skill Gap Analysis</div>'
+        scorecard_html += f'<div style="border-top: 1px solid #E4DDD3; margin-top:1.25rem; padding-top:1.25rem;">'
+        scorecard_html += f'  <div style="font-size:1.0rem; font-weight:700; color:#8B5E3C; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.8rem;">🎯 Skill Gap Analysis</div>'
         
         if must_learn:
-            scorecard_html += f'  <div style="margin-bottom:0.8rem;">'
-            scorecard_html += f'    <div style="font-size:0.82rem; font-weight:600; color:#EF4444; margin-bottom:0.35rem;">⚠️ Must Learn Immediately:</div>'
-            scorecard_html += "".join(f'<span class="tag" style="background:#FEF2F2; color:#991B1B !important; border:1px solid #FCA5A5; margin-right:5px; margin-bottom:5px; padding:3px 10px;">🔥 {skill}</span>' for skill in must_learn)
+            scorecard_html += f'  <div style="margin-bottom:1rem;">'
+            scorecard_html += f'    <div style="font-size:1.05rem; font-weight:600; color:#EF4444; margin-bottom:0.5rem;">⚠️ Must Learn Immediately:</div>'
+            scorecard_html += "".join(f'<span class="tag" style="background:#FEF2F2; color:#991B1B !important; border:1px solid #FCA5A5; margin-right:6px; margin-bottom:6px; padding:4px 12px; font-size:0.95rem;">🔥 {skill}</span>' for skill in must_learn)
             scorecard_html += f'  </div>'
             
         if may_learn:
             scorecard_html += f'  <div>'
-            scorecard_html += f'    <div style="font-size:0.82rem; font-weight:600; color:#4B5563; margin-bottom:0.35rem;">⏳ Future Growth Skills:</div>'
-            scorecard_html += "".join(f'<span class="tag" style="background:#F3F4F6; color:#1F2937 !important; border:1px solid #D1D5DB; margin-right:5px; margin-bottom:5px; padding:3px 10px;">💎 {skill}</span>' for skill in may_learn)
+            scorecard_html += f'    <div style="font-size:1.05rem; font-weight:600; color:#4B5563; margin-bottom:0.5rem;">⏳ Future Growth Skills:</div>'
+            scorecard_html += "".join(f'<span class="tag" style="background:#F3F4F6; color:#1F2937 !important; border:1px solid #D1D5DB; margin-right:6px; margin-bottom:6px; padding:4px 12px; font-size:0.95rem;">💎 {skill}</span>' for skill in may_learn)
             scorecard_html += f'  </div>'
             
         scorecard_html += f'</div>'
@@ -690,9 +793,45 @@ with col_left:
     scorecard_html += f'</div>'
     st.markdown(scorecard_html, unsafe_allow_html=True)
 
-    # --- Roadmap ---
-    with st.expander("🗺  Your 4-Week Learning Roadmap", expanded=False):
-        st.markdown(roadmap)
+    # --- Roadmap Visual Flowchart ---
+    st.markdown(f'<span class="section-label">🗺 Your {_timeline} Learning Roadmap</span>', unsafe_allow_html=True)
+    
+    if isinstance(roadmap, dict) and "phases" in roadmap:
+        phases = roadmap.get("phases", [])
+        final_project = roadmap.get("final_project", "")
+        
+        flowchart_html = f'<div class="timeline-container">'
+        for phase in phases:
+            timeframe = phase.get("timeframe", "")
+            title = phase.get("title", "")
+            tasks = phase.get("tasks", [])
+            
+            flowchart_html += f'<div class="timeline-item">'
+            flowchart_html += f'  <div class="timeline-marker"></div>'
+            flowchart_html += f'  <div class="timeline-content">'
+            flowchart_html += f'    <div class="timeline-timeframe">{timeframe}</div>'
+            flowchart_html += f'    <div class="timeline-title">{title}</div>'
+            for task in tasks:
+                flowchart_html += f'    <div class="timeline-task">{task}</div>'
+            flowchart_html += f'  </div>'
+            flowchart_html += f'</div>'
+            
+        if final_project:
+            flowchart_html += f'<div class="timeline-item">'
+            flowchart_html += f'  <div class="timeline-marker" style="background:#22C55E; border-color:#DCFCE7;"></div>'
+            flowchart_html += f'  <div class="timeline-content" style="border-left:4px solid #22C55E;">'
+            flowchart_html += f'    <div class="timeline-timeframe" style="color:#166534;">Final Capstone</div>'
+            flowchart_html += f'    <div class="timeline-title">Project Idea</div>'
+            flowchart_html += f'    <div class="timeline-task" style="color:#14532D; font-weight:500;">{final_project}</div>'
+            flowchart_html += f'  </div>'
+            flowchart_html += f'</div>'
+            
+        flowchart_html += f'</div>'
+        st.markdown(flowchart_html, unsafe_allow_html=True)
+    else:
+        # Fallback if old markdown roadmap was cached
+        roadmap_text = roadmap if isinstance(roadmap, str) else "_No valid roadmap generated._"
+        st.markdown(f'<div class="card" style="font-size:1.05rem; line-height:1.6; padding-top:1rem; padding-bottom:1rem;">\n\n{roadmap_text}\n\n</div>', unsafe_allow_html=True)
 
 # ============================= RIGHT PANEL - Career Coach ====================
 with col_right:

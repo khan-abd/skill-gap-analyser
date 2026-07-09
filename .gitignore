@@ -5,6 +5,9 @@ venv/
 # Ignore raw Kaggle datasets (too large for GitHub)
 *.csv
 
+# Ignore resumes and PDFs
+*.pdf
+
 # Ignore MacOS system files
 .DS_Store
 

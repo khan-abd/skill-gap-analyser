@@ -337,10 +337,11 @@ class AgenticCareerCoach:
     # ═══════════════════════════════════════════════════════════════════════════
     # Agent 3: RAG Learning Roadmap
     # ═══════════════════════════════════════════════════════════════════════════
-    def generate_roadmap(self, profile: dict, target_companies: list) -> str:
+    def generate_roadmap(self, profile: dict, target_companies: list, timeline: str = "4 Weeks") -> dict:
         """
-        4-week preparation plan tailored to the companies' actual hiring process.
+        Dynamic preparation plan tailored to the companies' actual hiring process.
         Course recommendations sourced from courses.csv via RAG.
+        Outputs a JSON schema for a flowchart/timeline.
         """
         companies_str = ", ".join(target_companies) if target_companies else "top MNCs"
         course_ctx = self._load_course_context(profile.get("skills", []))
@@ -348,10 +349,21 @@ class AgenticCareerCoach:
 
         system = (
             f"You are an elite career mentor who has placed hundreds of students at {companies_str}. "
-            f"Design a personalised 4-week preparation plan for {name} based on their full profile. "
+            f"Design a personalised {timeline} preparation plan for {name} based on their full profile. "
             f"Tailor the plan to {companies_str}'s specific interview process and hiring bar. "
             f"Recommend specific courses from the provided list. "
-            f"Format in clean markdown with Week 1–4 as headers, practical daily tasks, and a project idea for the end."
+            f"You MUST format the output as a valid JSON object strictly matching this schema:\n"
+            f"{{\n"
+            f"  \"phases\": [\n"
+            f"    {{\n"
+            f"      \"timeframe\": \"e.g. Week 1 or Days 1-15\",\n"
+            f"      \"title\": \"e.g. Foundational Skills\",\n"
+            f"      \"tasks\": [\"Task 1\", \"Task 2\"]\n"
+            f"    }}\n"
+            f"  ],\n"
+            f"  \"final_project\": \"Brief idea for a final capstone project.\"\n"
+            f"}}\n"
+            f"Ensure you logically divide the {timeline} into 3 to 5 phases."
         )
 
         projects_str = ", ".join(
@@ -370,10 +382,17 @@ class AgenticCareerCoach:
             f"  Internships: {', '.join(profile.get('internships', []))}\n\n"
             f"Target companies: {companies_str}\n\n"
             f"Available courses (RAG — recommend these where relevant):\n{course_ctx}\n\n"
-            f"Generate the 4-week roadmap."
+            f"Generate the {timeline} roadmap as JSON."
         )
 
-        return self._call_llm(system, prompt, json_mode=False)
+        raw = self._call_llm(system, prompt, json_mode=True)
+        return self._safe_json(
+            raw,
+            {
+                "phases": [{"timeframe": "Phase 1", "title": "Data Unavailable", "tasks": ["Please try again."]}],
+                "final_project": "N/A"
+            }
+        )
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Agent 4: Career Coach — Conversational Career Advisor
