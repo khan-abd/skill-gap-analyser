@@ -1,6 +1,6 @@
 # SkillBridge v2: Agentic Career War Room 🚀
 
-**🌍 Access the live web app:** [https://skillgap-analyzer.streamlit.app/](https://skillgap-analyzer.streamlit.app/)
+**🌍 Access the live web app:** [https://skill-gap-analyser.streamlit.app/](https://skill-gap-analyser.streamlit.app/)
 
 SkillBridge has been completely rebuilt from the ground up as an AI-powered, agentic career readiness platform. It bridges the gap between your resume and the actual hiring bar of top-tier companies. Powered by Gemini (or Groq/OpenAI), SkillBridge intelligently analyzes your profile, scores your readiness, builds an interactive timeline flowchart for preparation, and provides an always-on Career Coach.
 
