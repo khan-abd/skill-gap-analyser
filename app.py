@@ -6,9 +6,32 @@ Two-column layout: left = full audit + roadmap, right = Coach Bridge panel.
 No static SQL database - all intelligence is RAG-grounded via Gemini.
 """
 
+import os
 import streamlit as st
+from dotenv import load_dotenv
 from resume_parser import extract_text_from_pdf
 from agent_optimizer import AgenticCareerCoach, SCORECARD_AXES
+
+# ---------------------------------------------------------------------------- #
+# Load API key — two sources, priority order:
+#   1. Streamlit Cloud Secrets (when deployed on streamlit.io)
+#   2. Local .env file (when running on your own machine)
+# The key is NEVER stored in the repo itself.
+# ---------------------------------------------------------------------------- #
+load_dotenv()  # Load .env for local development
+
+def _load_api_key() -> str:
+    # On Streamlit Cloud, secrets are injected via the dashboard
+    try:
+        key = st.secrets.get("GEMINI_API_KEY", "")
+        if key:
+            return key.strip()
+    except Exception:
+        pass  # st.secrets not available locally — that's fine
+    # Fall back to local .env
+    return os.getenv("GEMINI_API_KEY", "").strip()
+
+ENV_API_KEY = _load_api_key()
 
 # ---------------------------------------------------------------------------- #
 # Page Config
@@ -434,7 +457,7 @@ POPULAR_ROLES = sorted([
 for key, default in {
     "analyzed": False, "profile": None, "scorecard": None, "roadmap": None,
     "coach_history": [], "coach_init_done": False,
-    "stored_api_key": "", "stored_companies": [], "stored_timeline": "4 Weeks",
+    "stored_api_key": ENV_API_KEY, "stored_companies": [], "stored_timeline": "4 Weeks",
     "stored_roles": [],
 }.items():
     if key not in st.session_state:
@@ -491,11 +514,15 @@ with st.sidebar:
             target_roles = list(target_roles) + [extra_role.strip()]
     st.divider()
 
-    st.markdown('<span class="section-label">🔑 API Key (Gemini, Groq, or OpenAI)</span>', unsafe_allow_html=True)
-    st.caption("Auto-detects: starts with `sk-` (OpenAI), `gsk_` (Groq), otherwise Gemini")
-    api_key = st.text_input(
-        "API Key", type="default", placeholder="Paste key here...", label_visibility="collapsed",
-    )
+    # API key is loaded from .env — no need for the user to enter it.
+    # If ENV_API_KEY is missing, show a clear warning in the sidebar.
+    api_key = ENV_API_KEY
+    if not api_key:
+        st.warning(
+            "⚠️ **API key not found.**\n\n"
+            "Add `GEMINI_API_KEY=your_key` to the `.env` file in the project folder.",
+            icon="🔑",
+        )
     st.divider()
 
     st.markdown('<span class="section-label">⏳ Preparation Timeline</span>', unsafe_allow_html=True)
@@ -509,8 +536,8 @@ with st.sidebar:
 
     analyze_btn = st.button("🚀 Run Full Analysis", use_container_width=True, type="primary")
     if analyze_btn:
-        if not api_key.strip():
-            st.error("Please paste your API Key first.")
+        if not api_key:
+            st.error("⚠️ No API key found. Add `GEMINI_API_KEY=your_key` to the `.env` file and restart the app.")
             st.stop()
         st.session_state.stored_api_key = api_key.strip()
         st.session_state.stored_companies = list(target_companies)
@@ -574,7 +601,7 @@ if not st.session_state.analyzed:
 # ---------------------------------------------------------------------------- #
 # Restore session values (persists through chat reruns)
 # ---------------------------------------------------------------------------- #
-_api_key   = st.session_state.stored_api_key or api_key.strip()
+_api_key   = st.session_state.stored_api_key or api_key
 _companies = st.session_state.stored_companies or list(target_companies)
 _timeline  = st.session_state.stored_timeline or "4 Weeks"
 _roles     = st.session_state.stored_roles or []
